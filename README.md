@@ -25,7 +25,7 @@ A 1.2 V core and a 3.3 V I/O ring cannot talk directly, for two separate reasons
 - **Going up is a logic problem.** A 1.2 V "high" is not high enough for 3.3 V logic to read as a high. Worse, it is not high enough to *switch off* a PMOS sitting on the 3.3 V rail — that PMOS only turns off when its gate gets within about 0.7 V of 3.3 V. So if you fed the 1.2 V signal straight into a 3.3 V inverter, the PMOS would never fully close and the gate would sit there burning DC current forever.
 - **Going down is a reliability problem.** A 3.3 V "high" is easily high enough for 1.2 V logic to read. But 3.3 V on the gate of a thin-oxide 1.2 V transistor destroys it.
 
-So the two directions need completely different circuits. That is why the block is not one circuit run backwards — it is two one-way paths sharing two pads.
+So the two directions need completely different circuits. 
 
 ## The big picture
 
@@ -49,9 +49,7 @@ So the two directions need completely different circuits. That is why the block 
 Only one path drives at a time. The control logic in the middle picks which,
 and makes sure they are never both on together.
 
-## Two rails, two kinds of transistor
-
-The design uses only devices that already exist in the PDK.[^ihp] Nothing is hand-made.
+## Two kinds of transistor utilized[^ihp]
 
 | Device | L | Rated | Character |
 |---|---|---|---|
@@ -168,7 +166,7 @@ driver.[^weste] The devices are large — 96 µm of HV PMOS against 48 µm of HV
 NMOS, roughly 2:1 for the slower carrier — because they have to move 5 pF in
 about a nanosecond.
 
-## 3. Shifting down — easy, but not free
+## 3. Shifting down 
 
 No latch here and no contention problem, because 3.3 V already reads as a high
 to 1.2 V logic. You just need an inverter running on the 1.2 V rail. The only
