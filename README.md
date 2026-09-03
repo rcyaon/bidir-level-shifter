@@ -242,10 +242,6 @@ the load.
 ![forward path](sim/results/01_forward_1v2_to_3v3.png)
 ![PVT corners](sim/results/09_pvt_corners.png)
 
-Full method, decks and figures are in [`sim/README.md`](sim/README.md). Numbers
-come from ngspice-47 against the real PSP103.6 device models,[^psp] not the
-placeholder models in the xschem testbench sheet.
-
 Remaining issue: the reverse path has only 49 mV of DC input hysteresis
 against 283 mV forward.
 
