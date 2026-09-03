@@ -12,14 +12,6 @@ Commercial parts solve the same problem the same way. The TI `SN74LVC8T245` is t
 
 # How it works
 
-Everything below describes one channel. The top-level schematic is
-`xschem/cplz_ls01/CH.sch`; the flattened netlist in `sim/cplz_ls01_dut.spice`
-is easier to read if you want to follow along in text. Every block is also
-drawn out, gate by gate and device by device, in
-[`docs/schematic-sheets.html`](docs/schematic-sheets.html).
-
-## The problem in plain words
-
 A 1.2 V core and a 3.3 V I/O ring cannot talk directly, for two separate reasons.
 
 - **Going up is a logic problem.** A 1.2 V "high" is not high enough for 3.3 V logic to read as a high. Worse, it is not high enough to *switch off* a PMOS sitting on the 3.3 V rail — that PMOS only turns off when its gate gets within about 0.7 V of 3.3 V. So if you fed the 1.2 V signal straight into a 3.3 V inverter, the PMOS would never fully close and the gate would sit there burning DC current forever.
@@ -94,7 +86,7 @@ goes through a copy of `CTRLLS` — the same up-shifter used for data, described
 next. Each copy hands back both polarities, so the 3.3 V side never needs an
 extra inverter to make a complement.
 
-## 2. Shifting up — the hard direction
+## 2. Shifting up 
 
 This is where most of the circuit lives.
 
@@ -256,13 +248,6 @@ placeholder models in the xschem testbench sheet.
 
 Remaining issue: the reverse path has only 49 mV of DC input hysteresis
 against 283 mV forward.
-
-## What I would change next
-
-1. **Make the reverse pad receiver a Schmitt trigger.** This is the one real deficiency in the block. Everything else is fine.
-2. **Power down the idle receiver.** Right now the reverse receiver chain keeps toggling while the forward path drives `b_pad` — it is watching our own output. Same on the LV side. Gating those costs nothing in speed.
-3. **Revisit the latch under corner pressure.** At SS / 125 C the ratioed fight is what sets worst-case delay. A limited-contention variant[^lc2] buys margin at the cost of more devices.
-4. **Put a real load on it.** All of this is schematic-level into a lumped 5 pF. Layout parasitics and a package model will move the delays.
 
 ---
 
