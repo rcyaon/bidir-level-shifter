@@ -251,13 +251,6 @@ placeholder models in the xschem testbench sheet.
 Remaining issue: the reverse path has only 49 mV of DC input hysteresis
 against 283 mV forward.
 
-## What I would change next
-
-1. **Make the reverse pad receiver a Schmitt trigger.** This is the one real deficiency in the block. Everything else is fine.
-2. **Power down the idle receiver.** Right now the reverse receiver chain keeps toggling while the forward path drives `b_pad` — it is watching our own output. Same on the LV side. Gating those costs nothing in speed.
-3. **Revisit the latch under corner pressure.** At SS / 125 C the ratioed fight is what sets worst-case delay. A limited-contention variant[^lc2] buys margin at the cost of more devices.
-4. **Put a real load on it.** All of this is schematic-level into a lumped 5 pF. Layout parasitics and a package model will move the delays.
-
 ---
 
 ## Related work
