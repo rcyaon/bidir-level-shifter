@@ -12,14 +12,6 @@ Commercial parts solve the same problem the same way. The TI `SN74LVC8T245` is t
 
 # How it works
 
-Everything below describes one channel. The top-level schematic is
-`xschem/cplz_ls01/CH.sch`; the flattened netlist in `sim/cplz_ls01_dut.spice`
-is easier to read if you want to follow along in text. Every block is also
-drawn out, gate by gate and device by device, in
-[`docs/schematic-sheets.html`](docs/schematic-sheets.html).
-
-## The problem in plain words
-
 A 1.2 V core and a 3.3 V I/O ring cannot talk directly, for two separate reasons.
 
 - **Going up is a logic problem.** A 1.2 V "high" is not high enough for 3.3 V logic to read as a high. Worse, it is not high enough to *switch off* a PMOS sitting on the 3.3 V rail — that PMOS only turns off when its gate gets within about 0.7 V of 3.3 V. So if you fed the 1.2 V signal straight into a 3.3 V inverter, the PMOS would never fully close and the gate would sit there burning DC current forever.
