@@ -1,0 +1,240 @@
+magic
+tech ihp-sg13cmos5l
+magscale 1 2
+timestamp 1774816172
+<< nwell >>
+rect -4 -550 1516 916
+<< hvpsubdiff >>
+rect -12 -688 1519 -674
+rect -12 -720 62 -688
+rect 1445 -720 1519 -688
+rect -12 -734 1519 -720
+rect -12 -748 48 -734
+rect -12 -1790 2 -748
+rect 34 -1790 48 -748
+rect -12 -1804 48 -1790
+rect 1459 -748 1519 -734
+rect 1459 -1790 1473 -748
+rect 1505 -1790 1519 -748
+rect 1459 -1804 1519 -1790
+rect -12 -1818 1519 -1804
+rect -12 -1850 62 -1818
+rect 1445 -1850 1519 -1818
+rect -12 -1864 1519 -1850
+<< hvnsubdiff >>
+rect 120 778 1392 792
+rect 120 746 194 778
+rect 1318 746 1392 778
+rect 120 732 1392 746
+rect 120 718 180 732
+rect 120 -352 134 718
+rect 166 -352 180 718
+rect 120 -366 180 -352
+rect 1332 718 1392 732
+rect 1332 -352 1346 718
+rect 1378 -352 1392 718
+rect 1332 -366 1392 -352
+rect 120 -380 1392 -366
+rect 120 -412 194 -380
+rect 1318 -412 1392 -380
+rect 120 -426 1392 -412
+<< hvpsubdiffcont >>
+rect 62 -720 1445 -688
+rect 2 -1790 34 -748
+rect 1473 -1790 1505 -748
+rect 62 -1850 1445 -1818
+<< hvnsubdiffcont >>
+rect 194 746 1318 778
+rect 134 -352 166 718
+rect 1346 -352 1378 718
+rect 194 -412 1318 -380
+<< metal1 >>
+rect 52 894 1458 918
+rect 52 828 176 894
+rect 1376 828 1458 894
+rect 52 778 1458 828
+rect 52 746 194 778
+rect 1318 746 1458 778
+rect 52 718 166 746
+rect 52 -352 134 718
+rect 52 -380 166 -352
+rect 1346 718 1458 746
+rect 1378 -352 1458 718
+rect 1346 -380 1458 -352
+rect 52 -412 194 -380
+rect 1318 -412 1458 -380
+rect 52 -437 1458 -412
+rect 318 -529 841 -487
+rect 3 -688 1505 -650
+rect 2 -720 62 -688
+rect 1445 -720 1505 -688
+rect 2 -748 46 -720
+rect 34 -1790 46 -748
+rect 2 -1818 46 -1790
+rect 1453 -748 1505 -720
+rect 1453 -1790 1473 -748
+rect 1453 -1818 1505 -1790
+rect 2 -1850 62 -1818
+rect 1445 -1850 1505 -1818
+rect 2 -1894 1505 -1850
+rect 2 -1950 143 -1894
+rect 1393 -1950 1505 -1894
+rect 2 -1968 1505 -1950
+<< via1 >>
+rect 176 828 1376 894
+rect 143 -1950 1393 -1894
+<< metal2 >>
+rect 8 894 1431 918
+rect 8 828 176 894
+rect 1376 828 1431 894
+rect 8 750 1431 828
+rect 222 -628 266 304
+rect 320 -495 360 374
+rect 402 -254 452 750
+rect 496 -628 536 368
+rect 222 -672 536 -628
+rect 222 -718 266 -672
+rect 68 -762 504 -718
+rect 596 -722 640 304
+rect 688 -615 738 608
+rect 798 -496 838 686
+rect 888 -266 928 750
+rect 976 656 1194 699
+rect 976 -615 1016 656
+rect 1064 -460 1104 610
+rect 1154 -322 1194 656
+rect 1244 -260 1284 750
+rect 1064 -500 1226 -460
+rect 688 -661 1016 -615
+rect 68 -1692 110 -762
+rect 188 -1760 228 -826
+rect -10 -1834 142 -1824
+rect 276 -1834 316 -1696
+rect 363 -1760 403 -826
+rect 462 -1694 504 -762
+rect 546 -766 952 -722
+rect 546 -1680 588 -766
+rect 642 -1760 684 -828
+rect 694 -866 858 -818
+rect 732 -1834 772 -1695
+rect 818 -1760 858 -866
+rect 910 -1698 952 -766
+rect 1004 -1834 1050 -830
+rect 1100 -1366 1140 -610
+rect 1182 -1314 1226 -500
+rect 1276 -1368 1316 -609
+rect 1100 -1739 1140 -1470
+rect 1188 -1690 1226 -1512
+rect 1276 -1739 1316 -1470
+rect 1100 -1779 1316 -1739
+rect 1360 -1834 1418 -826
+rect -10 -1894 1418 -1834
+rect -10 -1950 143 -1894
+rect 1393 -1950 1418 -1894
+rect -10 -1978 1418 -1950
+<< metal3 >>
+rect 1235 -570 1435 -416
+rect 8 -669 540 -621
+rect 1008 -661 1437 -615
+rect 8 -697 208 -669
+rect 8 -808 208 -778
+rect 492 -808 540 -669
+rect 8 -856 402 -808
+rect 492 -856 757 -808
+rect 910 -1738 950 -1572
+rect 1186 -1660 1232 -661
+rect 910 -1778 1206 -1738
+use sg13_hv_nmos_QBGVHE  sg13_hv_nmos_QBGVHE_0 paramcells
+timestamp 1774721386
+transform 1 0 1208 0 1 -1214
+box -206 -174 206 174
+use sg13_hv_nmos_QBGVHE  sg13_hv_nmos_QBGVHE_1
+timestamp 1774721386
+transform 1 0 1208 0 1 -926
+box -206 -174 206 174
+use sg13_hv_pmos_DNCZKC  sg13_hv_pmos_DNCZKC_0 paramcells
+timestamp 1774721386
+transform 1 0 428 0 1 216
+box -330 -224 330 224
+use sg13_hv_pmos_ZPCZKC  sg13_hv_pmos_ZPCZKC_0 paramcells
+timestamp 1774721386
+transform 1 0 995 0 1 420
+box -418 -324 418 324
+use via_Y6HC2N  via_Y6HC2N_0 paramcells
+timestamp 1774721386
+transform 1 0 620 0 1 -550
+box -29 -70 29 70
+use via_Y6HC2N  via_Y6HC2N_1
+timestamp 1774721386
+transform 0 1 382 -1 0 -508
+box -29 -70 29 70
+use via_Y6HC2N  via_Y6HC2N_2
+timestamp 1774721386
+transform 0 1 850 -1 0 -508
+box -29 -70 29 70
+use via_Y6HE6N  via_Y6HE6N_0 paramcells
+timestamp 1774721386
+transform 0 1 1212 -1 0 -1759
+box -29 -70 29 70
+use via_Y6HE6N  via_Y6HE6N_1
+timestamp 1774721386
+transform -1 0 1208 0 -1 -1622
+box -29 -70 29 70
+use via_Y6HW5N  via_Y6HW5N_0 paramcells
+timestamp 1774721386
+transform 1 0 1173 0 1 -477
+box -111 -70 111 70
+use via_Y6Z2DQ  via_Y6Z2DQ_0 sg13cmos5l_ocd_ip__analog_switches/magic/paramcells
+timestamp 1772657197
+transform 1 0 691 0 1 -837
+box -70 -29 70 29
+use via_Y6Z2DQ  via_Y6Z2DQ_1
+timestamp 1772657197
+transform 1 0 1366 0 1 -638
+box -70 -29 70 29
+use via_Y6Z2DQ  via_Y6Z2DQ_2
+timestamp 1772657197
+transform 1 0 1074 0 1 -633
+box -70 -29 70 29
+use via_Y6Z2DQ  via_Y6Z2DQ_8
+timestamp 1772657197
+transform 0 1 930 -1 0 -1635
+box -70 -29 70 29
+use via_Y6ZS5N  via_Y6ZS5N_0 paramcells
+timestamp 1774721386
+transform 1 0 318 0 1 -837
+box -111 -29 111 29
+use sg13_hv_nmos_QHASHE  XM1 paramcells
+timestamp 1774721386
+transform 1 0 296 0 1 -1306
+box -206 -474 206 474
+use sg13_hv_pmos_DNCZKC  XM2
+timestamp 1774721386
+transform 1 0 428 0 1 -168
+box -330 -224 330 224
+use sg13_hv_nmos_QHASHE  XM3
+timestamp 1774721386
+transform 1 0 752 0 1 -1302
+box -206 -474 206 474
+use sg13_hv_nmos_QBGVHE  XM6
+timestamp 1774721386
+transform 1 0 1208 0 1 -1602
+box -206 -174 206 174
+use sg13_hv_pmos_ZPCZKC  XM7
+timestamp 1774721386
+transform 1 0 995 0 1 -68
+box -418 -324 418 324
+<< labels >>
+flabel metal3 8 -856 208 -778 0 FreeSans 640 0 0 0 in_p
+port 1 nsew
+flabel metal3 8 -697 208 -621 0 FreeSans 640 0 0 0 in_n
+port 0 nsew
+flabel metal2 -10 -1978 142 -1824 0 FreeSans 640 0 0 0 vss
+port 4 nsew
+flabel metal2 8 766 160 912 0 FreeSans 640 0 0 0 vdd
+port 3 nsew
+flabel metal3 1235 -566 1435 -416 0 FreeSans 640 0 0 0 out
+port 2 nsew
+<< properties >>
+string MASKHINTS_THKOX -72 -2038 1579 978
+<< end >>

@@ -1,0 +1,15 @@
+* level_shift - 1.2V core to 3.3V HV level shifter (IHP SG13G2)
+* Extracted from sg13cmos5l_ocd_ip__biasgen (netlist/schematic/sg13cmos5l_ocd_ip__voltgen.spice)
+* Cross-coupled PMOS latch + 2-stage output buffer, sg13_hv devices
+
+.subckt level_shift in_n in_p out vdd vss
+*.PININFO in_n:I in_p:I out:O
+XM1 net1 in_p vss vss sg13_hv_nmos w=4u l=0.5u ng=1 m=2
+XM2 net1 S1_N vdd vdd sg13_hv_pmos w=1u l=0.5u ng=1 m=2
+XM3 S1_N in_n vss vss sg13_hv_nmos w=4u l=0.5u ng=1 m=2
+XM4 S1_N net1 vdd vdd sg13_hv_pmos w=1u l=0.5u ng=1 m=2
+XM5 S2_N S1_N vdd vdd sg13_hv_pmos w=2u l=0.5u ng=1 m=2
+XM6 S2_N S1_N vss vss sg13_hv_nmos w=1u l=0.5u ng=1 m=2
+XM7 out S2_N vdd vdd sg13_hv_pmos w=2u l=0.5u ng=1 m=4
+XM8 out S2_N vss vss sg13_hv_nmos w=1u l=0.5u ng=1 m=4
+.ends

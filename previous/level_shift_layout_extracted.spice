@@ -1,0 +1,35 @@
+* level_shift - layout-extracted netlist (magic extraction, merged devices)
+* Extracted from sg13cmos5l_ocd_ip__biasgen (netlist/layout/sg13cmos5l_ocd_ip__voltgen.spice)
+
+.subckt sg13_hv_pmos_DNCZKC D0 G0 S1 G1 w_n330_n224# a_138_n100#
+X0 a_138_n100# G1 S1 w_n330_n224# sg13_hv_pmos ad=0.34p pd=2.68u as=0.19p ps=1.38u w=1u l=0.5u
+X1 S1 G0 D0 w_n330_n224# sg13_hv_pmos ad=0.19p pd=1.38u as=0.34p ps=2.68u w=1u l=0.5u
+.ends
+
+.subckt sg13_hv_nmos_QHASHE D0 G0 S1 G1 a_138_n400# sub
+X0 S1 G0 D0 sub sg13_hv_nmos ad=0.76p pd=4.38u as=1.36p ps=8.68u w=4u l=0.5u
+X1 a_138_n400# G1 S1 sub sg13_hv_nmos ad=1.36p pd=8.68u as=0.76p ps=4.38u w=4u l=0.5u
+.ends
+
+.subckt sg13_hv_nmos_QBGVHE D0 G0 S1 G1 a_138_n100# sub
+X0 a_138_n100# G1 S1 sub sg13_hv_nmos ad=0.34p pd=2.68u as=0.19p ps=1.38u w=1u l=0.5u
+X1 S1 G0 D0 sub sg13_hv_nmos ad=0.19p pd=1.38u as=0.34p ps=2.68u w=1u l=0.5u
+.ends
+
+.subckt sg13_hv_pmos_ZPCZKC D0 G0 S1 G1 D2 S2 G2 w_n418_n324#
+X0 S1 G0 D0 w_n418_n324# sg13_hv_pmos ad=0.38p pd=2.38u as=0.68p ps=4.68u w=2u l=0.5u
+X1 S2 G2 D2 w_n418_n324# sg13_hv_pmos ad=0.68p pd=4.68u as=0.38p ps=2.38u w=2u l=0.5u
+X2 D2 G1 S1 w_n418_n324# sg13_hv_pmos ad=0.38p pd=2.38u as=0.38p ps=2.38u w=2u l=0.5u
+.ends
+
+.subckt level_shift in_n in_p out vss vdd
+Xsg13_hv_pmos_DNCZKC_0 XM2/G1 XM7/G0 vdd XM2/G1 vdd XM7/G0 sg13_hv_pmos_DNCZKC
+XXM1 XM2/G1 in_p vss in_p XM2/G1 vss sg13_hv_nmos_QHASHE
+XXM2 XM2/G1 XM7/G0 vdd XM2/G1 vdd XM7/G0 sg13_hv_pmos_DNCZKC
+XXM3 XM7/G0 in_n vss in_n XM7/G0 vss sg13_hv_nmos_QHASHE
+XXM6 vss XM7/G0 XM7/G2 XM7/G0 vss vss sg13_hv_nmos_QBGVHE
+XXM7 XM7/G2 XM7/G0 vdd XM7/G2 out vdd XM7/G2 vdd sg13_hv_pmos_ZPCZKC
+Xsg13_hv_nmos_QBGVHE_0 vss XM7/G2 out XM7/G2 vss vss sg13_hv_nmos_QBGVHE
+Xsg13_hv_nmos_QBGVHE_1 vss XM7/G2 out XM7/G2 vss vss sg13_hv_nmos_QBGVHE
+Xsg13_hv_pmos_ZPCZKC_0 XM7/G2 XM7/G0 vdd XM7/G2 out vdd XM7/G2 vdd sg13_hv_pmos_ZPCZKC
+.ends
