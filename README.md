@@ -88,7 +88,7 @@ goes through a copy of `CTRLLS` — the same up-shifter used for data, described
 next. Each copy hands back both polarities, so the 3.3 V side never needs an
 extra inverter to make a complement.
 
-## 2. Shifting up — the hard direction
+## 2. Shifting up 
 
 This is where most of the circuit lives.
 
@@ -160,7 +160,7 @@ driver.[^weste] The devices are large — 96 µm of HV PMOS against 48 µm of HV
 NMOS, roughly 2:1 for the slower carrier — because they have to move 5 pF in
 about a nanosecond.
 
-## 3. Shifting down — easy, but not free
+## 3. Shifting down 
 
 No latch here and no contention problem, because 3.3 V already reads as a high
 to 1.2 V logic. You just need an inverter running on the 1.2 V rail. The only
