@@ -1,0 +1,359 @@
+**.ends
+
+* expanding   symbol:  cplz_ls01/CH.sym # of pins=10
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/CH.sym
+.subckt CH a_pad b_pad dir oe_n en tm ring_div vddl vddh vss
+*.iopin a_pad
+*.iopin b_pad
+*.iopin dir
+*.iopin oe_n
+*.iopin en
+*.iopin tm
+*.iopin ring_div
+*.iopin vddl
+*.iopin vddh
+*.iopin vss
+XU1 dir dirb vddl vss INVLV
+XU2 oe_n oe vddl vss INVLV
+XO1 dirb tm dtu vddl vss OR2LV
+XO2 dir tm dtd vddl vss OR2LV
+XU3 dtu oe en eur vddl vss AND3LV
+XU4 eur eud vddl vss DLY2NS
+XU5 eur eud en_up vddl vss AND2LV
+XU6 dtd oe en ear vddl vss AND3LV
+XU7 ear ead vddl vss DLY2NS
+XU8 ear ead en_a vddl vss AND2LV
+XU9 en_a en_ab vddl vss INVLV
+XL1 en_up en_b_h enb_b_h vddl vddh vss CTRLLS
+XL2 en en_h enb_h vddl vddh vss CTRLLS
+XL3 tm tm_h tmb_h vddl vddh vss CTRLLS
+XRX a_pad arxb vddl vss SCHMLV
+XRB arxb a_rx vddl vss INVLV
+XM1 a_rx z_l tm a_in vddl vss MUXLV
+XG1 a_in en_up a_nb vddl vss NANDLV
+XG2 a_nb a_t vddl vss INVLV
+XMN1 n1 a_t vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
+XMN2 n2 a_nb vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
+XMN3 x vddl n1 vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+XMN4 y vddl n2 vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+XMP1 x y vddh vddh sg13_hv_pmos w=0.8u l=0.8u ng=1
+XMP2 y x vddh vddh sg13_hv_pmos w=0.8u l=0.8u ng=1
+XMN5 y enb_h vss vss sg13_hv_nmos w=0.5u l=0.45u ng=1
+XH1 y z1 vddh vss INVHV1S
+XH2 z1 z_h vddh vss INVHV2T
+XD1 z_h en_b_h pg vddh vss NANDHV
+XD2 z_h enb_b_h ng vddh vss NORHV
+XMPD b_pad pg vddh vddh sg13_hv_pmos w=12u l=0.45u ng=1 m=8
+XMND b_pad ng vss vss sg13_hv_nmos w=12u l=0.45u ng=1 m=4
+RSER b_pad b_rx 200
+XMP6 d1 b_rx vddh vddh sg13_hv_pmos w=1.5u l=0.45u ng=1
+XMN7 d1 b_rx vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
+XM2 d1 z_h tm_h tmb_h d1m vddh vss MUXHV
+XMP8 d2 d1m vddl vddl sg13_hv_pmos w=1.0u l=0.45u ng=1
+XMN9 d2 d1m vss vss sg13_hv_nmos w=0.8u l=0.45u ng=1
+XS2 d2 d3 vddl vss SCHMLV
+XPK d3 en_a z_l vddl vss NANDLV
+XA1 z_l en_a apg vddl vss NANDLV
+XA2 z_l en_ab ang vddl vss NORLV
+XMPA a_pad apg vddl vddl sg13_lv_pmos w=24u l=0.13u ng=1
+XMNA a_pad ang vss vss sg13_lv_nmos w=12u l=0.13u ng=1
+XDV z_l ring_div vddl vss DIV16
+.ends
+
+
+* expanding   symbol:  cplz_ls01/INVLV.sym # of pins=4
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/INVLV.sym
+.subckt INVLV a y vdd vss
+*.iopin a
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+XMN y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/OR2LV.sym # of pins=5
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/OR2LV.sym
+.subckt OR2LV a b y vdd vss
+*.iopin a
+*.iopin b
+*.iopin y
+*.iopin vdd
+*.iopin vss
+X1 a b yn vdd vss NORLV
+X2 yn y vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  cplz_ls01/AND3LV.sym # of pins=6
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/AND3LV.sym
+.subckt AND3LV a b c y vdd vss
+*.iopin a
+*.iopin b
+*.iopin c
+*.iopin y
+*.iopin vdd
+*.iopin vss
+X1 a b c yn vdd vss NAND3LV
+X2 yn y vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  cplz_ls01/DLY2NS.sym # of pins=4
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/DLY2NS.sym
+.subckt DLY2NS a y vdd vss
+*.iopin a
+*.iopin y
+*.iopin vdd
+*.iopin vss
+X1 a t1 vdd vss INVLV
+C1 t1 vss 0.35p
+X2 t1 t2 vdd vss INVLV
+C2 t2 vss 0.35p
+X3 t2 t3 vdd vss INVLV
+C3 t3 vss 0.35p
+X4 t3 y vdd vss INVLV
+C4 y vss 0.15p
+.ends
+
+
+* expanding   symbol:  cplz_ls01/AND2LV.sym # of pins=5
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/AND2LV.sym
+.subckt AND2LV a b y vdd vss
+*.iopin a
+*.iopin b
+*.iopin y
+*.iopin vdd
+*.iopin vss
+X1 a b yn vdd vss NANDLV
+X2 yn y vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  cplz_ls01/CTRLLS.sym # of pins=6
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/CTRLLS.sym
+.subckt CTRLLS in q_h qb_h vddl vddh vss
+*.iopin in
+*.iopin q_h
+*.iopin qb_h
+*.iopin vddl
+*.iopin vddh
+*.iopin vss
+XI in inb vddl vss INVLV
+XMN1 c1 in vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XMN2 c2 inb vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XMC1 qb_h vddl c1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+XMC2 q_h vddl c2 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+XMP1 qb_h q_h vddh vddh sg13_hv_pmos w=0.5u l=1.6u ng=1
+XMP2 q_h qb_h vddh vddh sg13_hv_pmos w=0.5u l=1.6u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/SCHMLV.sym # of pins=4
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/SCHMLV.sym
+.subckt SCHMLV a y vdd vss
+*.iopin a
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMN1 nx a vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XMN2 y a nx vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XMNF vdd y nx vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+XMP1 px a vdd vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XMP2 y a px vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XMPF vss y px vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/MUXLV.sym # of pins=6
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/MUXLV.sym
+.subckt MUXLV in0 in1 sel out vdd vss
+*.iopin in0
+*.iopin in1
+*.iopin sel
+*.iopin out
+*.iopin vdd
+*.iopin vss
+XI sel selb vdd vss INVLV
+XMT0N out selb in0 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XMT0P out sel in0 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XMT1N out sel in1 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XMT1P out selb in1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/NANDLV.sym # of pins=5
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/NANDLV.sym
+.subckt NANDLV a b y vdd vss
+*.iopin a
+*.iopin b
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP1 y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+XMP2 y b vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+XMN1 y a n1 vss sg13_lv_nmos w=0.8u l=0.13u ng=1
+XMN2 n1 b vss vss sg13_lv_nmos w=0.8u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/INVHV1S.sym # of pins=4
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/INVHV1S.sym
+.subckt INVHV1S a y vdd vss
+*.iopin a
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP y a vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+XMN y a vss vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/INVHV2T.sym # of pins=4
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/INVHV2T.sym
+.subckt INVHV2T a y vdd vss
+*.iopin a
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP y a vdd vdd sg13_hv_pmos w=6.0u l=0.45u ng=1
+XMN y a vss vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/NANDHV.sym # of pins=5
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/NANDHV.sym
+.subckt NANDHV a b y vdd vss
+*.iopin a
+*.iopin b
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP1 y a vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+XMP2 y b vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+XMN1 y a n1 vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+XMN2 n1 b vss vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/NORHV.sym # of pins=5
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/NORHV.sym
+.subckt NORHV a b y vdd vss
+*.iopin a
+*.iopin b
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP1 p1 a vdd vdd sg13_hv_pmos w=4.0u l=0.45u ng=1
+XMP2 y b p1 vdd sg13_hv_pmos w=4.0u l=0.45u ng=1
+XMN1 y a vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
+XMN2 y b vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/MUXHV.sym # of pins=7
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/MUXHV.sym
+.subckt MUXHV in0 in1 sel selb out vdd vss
+*.iopin in0
+*.iopin in1
+*.iopin sel
+*.iopin selb
+*.iopin out
+*.iopin vdd
+*.iopin vss
+XMT0N out selb in0 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+XMT0P out sel in0 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+XMT1N out sel in1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+XMT1P out selb in1 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/NORLV.sym # of pins=5
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/NORLV.sym
+.subckt NORLV a b y vdd vss
+*.iopin a
+*.iopin b
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP1 p1 a vdd vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XMP2 y b p1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XMN1 y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+XMN2 y b vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/DIV16.sym # of pins=4
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/DIV16.sym
+.subckt DIV16 in out vdd vss
+*.iopin in
+*.iopin out
+*.iopin vdd
+*.iopin vss
+XB1 in b1 vdd vss INVLV
+XB2 b1 ck0 vdd vss INVLV
+X1 q1b ck0 q1 q1b vdd vss DFFLV
+X2 q2b q1 q2 q2b vdd vss DFFLV
+X3 q3b q2 q3 q3b vdd vss DFFLV
+X4 q4b q3 out q4b vdd vss DFFLV
+.ends
+
+
+* expanding   symbol:  cplz_ls01/NAND3LV.sym # of pins=6
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/NAND3LV.sym
+.subckt NAND3LV a b c y vdd vss
+*.iopin a
+*.iopin b
+*.iopin c
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP1 y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+XMP2 y b vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+XMP3 y c vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+XMN1 y a n1 vss sg13_lv_nmos w=1.2u l=0.13u ng=1
+XMN2 n1 b n2 vss sg13_lv_nmos w=1.2u l=0.13u ng=1
+XMN3 n2 c vss vss sg13_lv_nmos w=1.2u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  cplz_ls01/DFFLV.sym # of pins=6
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/DFFLV.sym
+.subckt DFFLV d clk q qb vdd vss
+*.iopin d
+*.iopin clk
+*.iopin q
+*.iopin qb
+*.iopin vdd
+*.iopin vss
+XI0 clk clkb vdd vss INVLV
+XI9 clkb clki vdd vss INVLV
+XMT1N m1 clkb d vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+XMT1P m1 clki d vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+XI1 m1 m1b vdd vss INVLV
+XI2 m1b m1f vdd vss INVLVW
+XMT2N m1 clki m1f vss sg13_lv_nmos w=0.3u l=0.13u ng=1
+XMT2P m1 clkb m1f vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
+XMT3N s1 clki m1b vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+XMT3P s1 clkb m1b vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+XI3 s1 s1b vdd vss INVLV
+XI4 s1b s1f vdd vss INVLVW
+XMT4N s1 clkb s1f vss sg13_lv_nmos w=0.3u l=0.13u ng=1
+XMT4P s1 clki s1f vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
+XI5 s1b qb vdd vss INVLV
+XI6 qb q vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  cplz_ls01/INVLVW.sym # of pins=4
+** sym_path: /foss/designs/cplz_ls01_xschem/cplz_ls01/INVLVW.sym
+.subckt INVLVW a y vdd vss
+*.iopin a
+*.iopin y
+*.iopin vdd
+*.iopin vss
+XMP y a vdd vdd sg13_lv_pmos w=0.3u l=0.3u ng=1
+XMN y a vss vss sg13_lv_nmos w=0.3u l=0.3u ng=1
+.ends
+
