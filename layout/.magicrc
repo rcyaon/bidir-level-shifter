@@ -1,0 +1,38 @@
+# Project-local .magicrc for CPLZ-LS01.
+# magic reads ./.magicrc before ~/.magicrc.  As with xschem/xschemrc, the PDK
+# is reached through $PDK_ROOT/$PDK rather than a hardcoded or symlinked path.
+
+if {![info exists ::env(PDK_ROOT)]} {
+    foreach candidate [list /foss/pdks /usr/share/pdk /usr/local/share/pdk \
+                            $::env(HOME)/share/pdk $::env(HOME)/.ciel \
+                            $::env(HOME)/.volare] {
+        if {[file isdirectory $candidate/ihp-sg13cmos5l] ||
+            [file isdirectory $candidate/ihp-sg13g2]} {
+            set ::env(PDK_ROOT) $candidate
+            break
+        }
+    }
+}
+if {![info exists ::env(PDK)]} {
+    if {[info exists ::env(PDK_ROOT)] && [file isdirectory $::env(PDK_ROOT)/ihp-sg13g2]} {
+        set ::env(PDK) ihp-sg13g2
+    } else {
+        set ::env(PDK) ihp-sg13cmos5l
+    }
+}
+
+if {[info exists ::env(PDK_ROOT)]} {
+    set pdk_magic_dir $::env(PDK_ROOT)/$::env(PDK)/libs.tech/magic
+    # open_pdks installs <pdk>.magicrc; upstream IHP names it ihp-sg13g2.magicrc.
+    set pdk_magicrc [lindex [glob -nocomplain $pdk_magic_dir/*.magicrc] 0]
+    if {$pdk_magicrc ne ""} {
+        source $pdk_magicrc
+    } else {
+        puts stderr ".magicrc: no PDK magicrc under $pdk_magic_dir"
+    }
+} else {
+    puts stderr ".magicrc: PDK_ROOT not set; magic will start with no technology."
+}
+
+# Project cells live here.
+addpath [file dirname [file normalize [info script]]]

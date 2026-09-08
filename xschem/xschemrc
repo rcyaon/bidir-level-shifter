@@ -1,0 +1,78 @@
+#
+# Project-local xschemrc for CPLZ-LS01 (bidirectional 1.2 V <-> 3.3 V level shifter).
+#
+# Deliberately NOT a symlink to, or a copy of, the PDK's own xschemrc: absolute
+# PDK paths are not portable between machines/containers.  Instead this file
+# resolves the PDK through $PDK_ROOT/$PDK and sources the PDK's xschemrc, then
+# appends only this project's own library paths.  Same pattern as
+# sky130_ef_ip__template/xschem/xschemrc, which is the recommended starting
+# point for analog projects.
+#
+# Launch xschem from this directory (or with -rcfile pointing here) so that
+# this file is the one picked up instead of ~/.xschem/xschemrc.
+#
+
+# ---------------------------------------------------------------- PDK_ROOT --
+# Honour the environment first; only guess if it is unset.
+if { ![info exists env(PDK_ROOT)] || $env(PDK_ROOT) eq "" } {
+    puts stderr "xschemrc: PDK_ROOT not set, looking for an open_pdks install"
+    foreach candidate [list \
+            /foss/pdks \
+            /usr/share/pdk \
+            /usr/local/share/pdk \
+            $env(HOME)/share/pdk \
+            $env(HOME)/.ciel \
+            $env(HOME)/.volare ] {
+        if { [file isdirectory $candidate/ihp-sg13cmos5l] ||
+             [file isdirectory $candidate/ihp-sg13g2] } {
+            set ::env(PDK_ROOT) $candidate
+            break
+        }
+    }
+}
+if { ![info exists env(PDK_ROOT)] } {
+    puts stderr "xschemrc: no open_pdks installation found."
+    puts stderr "          Set PDK_ROOT (and PDK) and restart xschem."
+}
+
+# --------------------------------------------------------------------- PDK --
+# ihp-sg13cmos5l is the open_pdks name; ihp-sg13g2 is the upstream IHP name.
+if { ![info exists env(PDK)] || $env(PDK) eq "" } {
+    if { [info exists env(PDK_ROOT)] && [file isdirectory $env(PDK_ROOT)/ihp-sg13g2] } {
+        set ::env(PDK) ihp-sg13g2
+    } else {
+        set ::env(PDK) ihp-sg13cmos5l
+    }
+}
+
+# ------------------------------------------------- source the PDK xschemrc --
+# This is what sets XSCHEM_LIBRARY_PATH to the PDK device symbols, the netlist
+# format, the tech-specific menus, etc.  Everything below only adds to it.
+if { [info exists env(PDK_ROOT)] } {
+    set pdk_xschemrc $env(PDK_ROOT)/$env(PDK)/libs.tech/xschem/xschemrc
+    if { [file exists $pdk_xschemrc] } {
+        source $pdk_xschemrc
+    } else {
+        puts stderr "xschemrc: $pdk_xschemrc not found -- PDK symbols will be missing."
+    }
+}
+
+# --------------------------------------------------- project library paths --
+# Resolved from this file's own location, so they are correct no matter which
+# directory xschem was started from.
+set project_xschem_dir [file dirname [file normalize [info script]]]
+
+# Project cell library: CH, CTRLLS, INVHV, SCHMLV, ... plus tb_channel.
+append XSCHEM_LIBRARY_PATH :$project_xschem_dir
+append XSCHEM_LIBRARY_PATH :$project_xschem_dir/cplz_ls01
+
+# Local copies of the sg13 device symbols.  Left OUT of the search path on
+# purpose: the PDK's own sg13cmos5l_pr library is sourced above and must win.
+# Uncomment only to open the schematics without a PDK installed, accepting that
+# the resulting netlist will not match the PDK.
+# append XSCHEM_LIBRARY_PATH :$project_xschem_dir/sg13cmos5l_pr
+
+# ------------------------------------------------------------- conveniences --
+# "Netlist" writes into sim/ next to the hand-written decks, not into a scratch
+# directory under $HOME.
+set netlist_dir [file normalize $project_xschem_dir/../sim]

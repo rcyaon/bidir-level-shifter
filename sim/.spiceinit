@@ -1,0 +1,16 @@
+* Project-local ngspice init for CPLZ-LS01.
+*
+* ngspice reads ./.spiceinit before ~/.spiceinit, so every deck in this
+* directory simulates the same way on any machine.  Committed for the same
+* reason as xschem/xschemrc: reproducibility without hardcoded paths.
+*
+* Kept deliberately minimal -- only what the IHP PSP103.6 corner libraries
+* need.  Do not add numeric options (method, reltol, ...) here: the results
+* in ../README.md and results/ were produced with ngspice defaults.
+
+* HSPICE-compatible expression/parameter handling, required by cornerMOSlv.lib
+* and cornerMOShv.lib.
+set ngbehavior=hsa
+
+* Do not reject model cards carrying parameters this ngspice build ignores.
+set ng_nomodcheck

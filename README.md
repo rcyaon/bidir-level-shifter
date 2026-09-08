@@ -247,6 +247,76 @@ against 283 mV forward.
 
 ---
 
+## Repository layout and how to reproduce it
+
+```
+xschem/xschemrc           project-local xschem config (see below)
+xschem/cplz_ls01/         .sch and .sym for every cell + tb_channel
+xschem/sg13cmos5l_pr/     local copies of the sg13 device symbols, NOT on the
+                          library path by default -- the PDK's own copies win
+sim/.spiceinit            ngspice settings the decks assume
+sim/*.sp, *.sp.res        PVT decks and their measurement output
+sim/cplz_ls01_dut*.spice  frozen DUT netlists the committed results came from
+layout/.magicrc           magic config, same pattern as xschemrc
+```
+
+The schematics themselves are the source of truth and are committed as-is:
+xschem `.sch`/`.sym` files are plain ASCII, so they diff and merge in git like
+any other text file. Nothing here is stored as a binary database.
+
+### Why there is an `xschemrc` in this repo
+
+The PDK ships its own `xschemrc`, but symlinking to it or copying its absolute
+paths into the project does not survive moving between machines — the PDK sits
+at `/foss/pdks` inside IIC-OSIC-TOOLS, somewhere under `$HOME/.ciel` for a
+ciel/volare install, and `/usr/local/share/pdk` for a system open_pdks build.
+The portable convention, and the one used across the Efabless analog projects,
+is a project-local `xschemrc` that *sources* the PDK's one through environment
+variables:
+
+```tcl
+source $env(PDK_ROOT)/$env(PDK)/libs.tech/xschem/xschemrc
+```
+
+and then appends only the project's own library paths on top. `xschem/xschemrc`
+here does exactly that, with `PDK_ROOT`/`PDK` autodetection as a fallback when
+they are unset, and with the project paths resolved from `[info script]` so they
+are correct no matter which directory xschem was launched from.
+[`sky130_ef_ip__template`](https://github.com/efabless/sky130_ef_ip__template)'s
+`xschem/xschemrc` is the reference version of this pattern.
+
+`layout/.magicrc` and `sim/.spiceinit` are committed next to it for the same
+reason: magic and ngspice both read a config from the current directory before
+falling back to `$HOME`, so shipping them with the repo is what makes a clone
+open and simulate identically for someone else.
+
+To open the schematics:
+
+```sh
+export PDK_ROOT=/foss/pdks          # or wherever open_pdks put the PDK
+export PDK=ihp-sg13cmos5l           # ihp-sg13g2 for an upstream IHP install
+cd xschem && xschem
+```
+
+### Caveat when borrowing blocks from other repos
+
+Path conventions are *not* consistent across Chipalooza / open-silicon IP
+repos — some hardcode a PDK path, some assume a different `PDK` name for the
+same technology, some expect to be launched from the repo root rather than from
+`xschem/`. Expect to rewrite the `xschemrc` of any block pulled in from
+elsewhere rather than assuming it will resolve against this one.
+
+### Known gap
+
+The netlists and model wrappers under `sim/` still carry absolute
+`/foss/pdks/...` and `/foss/designs/...` paths, so simulation currently assumes
+an IIC-OSIC-TOOLS container. ngspice does not expand environment variables
+inside `.lib`/`.include`, so the fix is either a generated `sim/pdk` symlink to
+`$PDK_ROOT/$PDK` (already in `.gitignore`) or a small setup script that rewrites
+those lines — not done yet.
+
+---
+
 ## Related work
 
 **Bidirectional translation as a product.** The board-level equivalents split
