@@ -10,23 +10,14 @@
 *.sym.bak
 *.sch.lock
 *.sym.lock
+# Netlists and simulation output (xschemrc points netlist_dir here).
 xschem/simulation/
-
-# Netlists xschem generates from the schematics (regenerate with
-#   xschem -x -n -q -o . ../xschem/cplz_ls01/tb_channel.sch ).
-# sim/cplz_ls01_dut*.spice are checked in on purpose as the frozen DUT netlists
-# the committed results were produced from, so they are re-included below.
-sim/*.spice
-!sim/cplz_ls01_dut*.spice
-!sim/models_*.spice
-!sim/_stub_raw.spice
 
 # --- ngspice -----------------------------------------------------------------
 *.raw
 *.out
 *.log
 b#*
-# .res measurement summaries ARE tracked -- they are the PVT table's source.
 
 # --- magic / klayout ---------------------------------------------------------
 *.ext
@@ -47,6 +38,5 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# --- local PDK convenience links (see README, "Reproducing this repo") -------
-sim/pdk
+# --- local PDK convenience link ----------------------------------------------
 layout/pdk

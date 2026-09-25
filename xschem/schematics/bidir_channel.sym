@@ -1,0 +1,45 @@
+v {xschem version=3.4.4 file_version=1.2}
+G {}
+K {type=subcircuit
+format="@name @pinlist @symname"
+template="name=x1"
+}
+V {}
+S {}
+E {}
+L 4 -120 -60 120 -60 {}
+L 4 -120 60 120 60 {}
+L 4 -120 -60 -120 60 {}
+L 4 120 -60 120 60 {}
+L 4 -140 -40 -120 -40 {}
+L 4 140 -10 120 -10 {}
+L 4 -140 -20 -120 -20 {}
+L 4 -140 0 -120 0 {}
+L 4 -140 20 -120 20 {}
+L 4 -140 40 -120 40 {}
+L 4 140 10 120 10 {}
+L 4 -20 -80 -20 -60 {}
+L 4 20 -80 20 -60 {}
+L 4 0 80 0 60 {}
+B 5 -142.5 -42.5 -137.5 -37.5 {name=a_pad dir=inout}
+B 5 137.5 -12.5 142.5 -7.5 {name=b_pad dir=inout}
+B 5 -142.5 -22.5 -137.5 -17.5 {name=dir dir=inout}
+B 5 -142.5 -2.5 -137.5 2.5 {name=oe_n dir=inout}
+B 5 -142.5 17.5 -137.5 22.5 {name=en dir=inout}
+B 5 -142.5 37.5 -137.5 42.5 {name=tm dir=inout}
+B 5 137.5 7.5 142.5 12.5 {name=ring_div dir=inout}
+B 5 -22.5 -82.5 -17.5 -77.5 {name=vddl dir=inout}
+B 5 17.5 -82.5 22.5 -77.5 {name=vddh dir=inout}
+B 5 -2.5 77.5 2.5 82.5 {name=vss dir=inout}
+T {a_pad} -116 -46 0 0 0.2 0.2 {}
+T {b_pad} 116 -16 0 1 0.2 0.2 {}
+T {dir} -116 -26 0 0 0.2 0.2 {}
+T {oe_n} -116 -6 0 0 0.2 0.2 {}
+T {en} -116 14 0 0 0.2 0.2 {}
+T {tm} -116 34 0 0 0.2 0.2 {}
+T {ring_div} 116 4 0 1 0.2 0.2 {}
+T {vddl} -20 -58 0 0 0.16 0.16 {hcenter=true}
+T {vddh} 20 -58 0 0 0.16 0.16 {hcenter=true}
+T {vss} 0 48 0 0 0.16 0.16 {hcenter=true}
+T {@symname} 0 -7 0 0 0.2 0.2 {hcenter=true}
+T {@name} -120 -76 0 0 0.2 0.2 {}
