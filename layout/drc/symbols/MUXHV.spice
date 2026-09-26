@@ -1,0 +1,8 @@
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/MUXHV.sch
+.subckt MUXHV in0 in1 sel selb out vdd vss
+*.PININFO out:B in0:B in1:B sel:B selb:B vdd:B vss:B
+MMT0N out selb in0 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMT0P out sel in0 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+MMT1N out sel in1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMT1P out selb in1 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+.ends

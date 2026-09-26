@@ -1,0 +1,8 @@
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/NANDHV.sch
+.subckt NANDHV a b y vdd vss
+*.PININFO vdd:B vss:B y:B a:B b:B
+MMP1 y a vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+MMP2 y b vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+MMN1 y a net1 vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+MMN2 net1 b vss vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+.ends

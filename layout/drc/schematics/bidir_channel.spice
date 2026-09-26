@@ -1,0 +1,289 @@
+** sch_path: xschem/schematics/bidir_channel.sch
+.subckt bidir_channel a_pad b_pad dir oe_n en tm ring_div vddl vddh vss
+*.PININFO dir:B vddl:B vss:B oe_n:B en:B tm:B a_pad:B b_pad:B vddh:B ring_div:B
+XU1 dir net1 vddl vss INVLV
+XO1 net1 tm net2 vddl vss OR2LV
+XU3 net2 oe en eur vddl vss AND3LV
+XU4 eur net3 vddl vss delay_2ns
+XU5 eur net3 en_up vddl vss AND2LV
+XU2 oe_n oe vddl vss INVLV
+XO2 dir tm net4 vddl vss OR2LV
+XU6 net4 oe en ear vddl vss AND3LV
+XU7 ear net5 vddl vss delay_2ns
+XU8 ear net5 en_a vddl vss AND2LV
+XU9 en_a en_ab vddl vss INVLV
+XL2 en en_h enb_h vddl vddh vss level_shifter_up
+XL3 tm tm_h tmb_h vddl vddh vss level_shifter_up
+XL1 en_up en_b_h enb_b_h vddl vddh vss level_shifter_up
+XRX a_pad net6 vddl vss SCHMLV
+XRB net6 net7 vddl vss INVLV
+XM1 net7 z_l tm net8 vddl vss MUXLV
+XG1 net8 en_up a_nb vddl vss NANDLV
+XG2 a_nb net9 vddl vss INVLV
+MMP1 net10 net12 vddh vddh sg13_hv_pmos w=0.8u l=0.8u ng=1
+MMP2 net12 net10 vddh vddh sg13_hv_pmos w=0.8u l=0.8u ng=1
+MMN3 net10 vddl net11 vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+MMN4 net12 vddl net13 vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+MMN1 net11 net9 vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
+MMN2 net13 a_nb vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
+MMN5 net12 enb_h vss vss sg13_hv_nmos w=0.5u l=0.45u ng=1
+XH1 net12 net14 vddh vss INVHV1S
+XH2 net14 z_h vddh vss INVHV2T
+XD1 z_h en_b_h net15 vddh vss NANDHV
+XD2 z_h enb_b_h net16 vddh vss NORHV
+MMPD b_pad net15 vddh vddh sg13_hv_pmos w=12u l=0.45u ng=1 m=8
+MMND b_pad net16 vss vss sg13_hv_nmos w=12u l=0.45u ng=1 m=4
+RSER b_pad net17 200
+MMP6 net18 net17 vddh vddh sg13_hv_pmos w=1.5u l=0.45u ng=1
+MMN7 net18 net17 vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
+XM2 net18 z_h tm_h tmb_h net19 vddh vss MUXHV
+MMP8 net20 net19 vddl vddl sg13_hv_pmos w=1.0u l=0.45u ng=1
+MMN9 net20 net19 vss vss sg13_hv_nmos w=0.8u l=0.45u ng=1
+XS2 net20 net21 vddl vss SCHMLV
+XPK net21 en_a z_l vddl vss NANDLV
+XA1 z_l en_a net22 vddl vss NANDLV
+XA2 z_l en_ab net23 vddl vss NORLV
+MMPA a_pad net22 vddl vddl sg13_lv_pmos w=24u l=0.13u ng=1
+MMNA a_pad net23 vss vss sg13_lv_nmos w=12u l=0.13u ng=1
+XDV z_l ring_div vddl vss divider_16
+.ends
+
+* expanding   symbol:  logic_gates/INVLV.sym # of pins=4
+** sym_path: xschem/logic_gates/INVLV.sym
+** sch_path: xschem/logic_gates/INVLV.sch
+.subckt INVLV a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+MMN y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/OR2LV.sym # of pins=5
+** sym_path: xschem/logic_gates/OR2LV.sym
+** sch_path: xschem/logic_gates/OR2LV.sch
+.subckt OR2LV a b y vdd vss
+*.PININFO a:B b:B y:B vdd:B vss:B
+X1 a b net1 vdd vss NORLV
+X2 net1 y vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  logic_gates/AND3LV.sym # of pins=6
+** sym_path: xschem/logic_gates/AND3LV.sym
+** sch_path: xschem/logic_gates/AND3LV.sch
+.subckt AND3LV a b c y vdd vss
+*.PININFO a:B b:B c:B y:B vdd:B vss:B
+X1 a b c net1 vdd vss NAND3LV
+X2 net1 y vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  schematics/delay_2ns.sym # of pins=4
+** sym_path: xschem/schematics/delay_2ns.sym
+** sch_path: xschem/schematics/delay_2ns.sch
+.subckt delay_2ns a y vdd vss
+*.PININFO a:B y:B vdd:B vss:B
+X1 a net1 vdd vss INVLV
+C1 net1 vss 0.35p
+X2 net1 net2 vdd vss INVLV
+C2 net2 vss 0.35p
+X3 net2 net3 vdd vss INVLV
+C3 net3 vss 0.35p
+X4 net3 y vdd vss INVLV
+C4 y vss 0.15p
+.ends
+
+
+* expanding   symbol:  logic_gates/AND2LV.sym # of pins=5
+** sym_path: xschem/logic_gates/AND2LV.sym
+** sch_path: xschem/logic_gates/AND2LV.sch
+.subckt AND2LV a b y vdd vss
+*.PININFO a:B b:B y:B vdd:B vss:B
+X1 a b net1 vdd vss NANDLV
+X2 net1 y vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  schematics/level_shifter_up.sym # of pins=6
+** sym_path: xschem/schematics/level_shifter_up.sym
+** sch_path: xschem/schematics/level_shifter_up.sch
+.subckt level_shifter_up in q_h qb_h vddl vddh vss
+*.PININFO vddh:B vss:B qb_h:B q_h:B vddl:B in:B
+MMP1 qb_h q_h vddh vddh sg13_hv_pmos w=0.5u l=1.6u ng=1
+MMP2 q_h qb_h vddh vddh sg13_hv_pmos w=0.5u l=1.6u ng=1
+MMC1 qb_h vddl net1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMC2 q_h vddl net2 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMN1 net1 in vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMN2 net2 net3 vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XI in net3 vddl vss INVLV
+.ends
+
+
+* expanding   symbol:  logic_gates/SCHMLV.sym # of pins=4
+** sym_path: xschem/logic_gates/SCHMLV.sym
+** sch_path: xschem/logic_gates/SCHMLV.sch
+.subckt SCHMLV a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP1 net1 a vdd vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMP2 y a net1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMN2 y a net2 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMN1 net2 a vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMPF vss y net1 vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+MMNF vdd y net2 vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/MUXLV.sym # of pins=6
+** sym_path: xschem/logic_gates/MUXLV.sym
+** sch_path: xschem/logic_gates/MUXLV.sch
+.subckt MUXLV in0 in1 sel out vdd vss
+*.PININFO out:B in0:B in1:B sel:B vdd:B vss:B
+MMT0N out net1 in0 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMT0P out sel in0 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMT1N out sel in1 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMT1P out net1 in1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XI sel net1 vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  logic_gates/NANDLV.sym # of pins=5
+** sym_path: xschem/logic_gates/NANDLV.sym
+** sch_path: xschem/logic_gates/NANDLV.sch
+.subckt NANDLV a b y vdd vss
+*.PININFO vdd:B vss:B y:B a:B b:B
+MMP1 y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+MMP2 y b vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+MMN1 y a net1 vss sg13_lv_nmos w=0.8u l=0.13u ng=1
+MMN2 net1 b vss vss sg13_lv_nmos w=0.8u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/INVHV1S.sym # of pins=4
+** sym_path: xschem/logic_gates/INVHV1S.sym
+** sch_path: xschem/logic_gates/INVHV1S.sch
+.subckt INVHV1S a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP y a vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+MMN y a vss vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/INVHV2T.sym # of pins=4
+** sym_path: xschem/logic_gates/INVHV2T.sym
+** sch_path: xschem/logic_gates/INVHV2T.sch
+.subckt INVHV2T a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP y a vdd vdd sg13_hv_pmos w=6.0u l=0.45u ng=1
+MMN y a vss vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/NANDHV.sym # of pins=5
+** sym_path: xschem/logic_gates/NANDHV.sym
+** sch_path: xschem/logic_gates/NANDHV.sch
+.subckt NANDHV a b y vdd vss
+*.PININFO vdd:B vss:B y:B a:B b:B
+MMP1 y a vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+MMP2 y b vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
+MMN1 y a net1 vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+MMN2 net1 b vss vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/NORHV.sym # of pins=5
+** sym_path: xschem/logic_gates/NORHV.sym
+** sch_path: xschem/logic_gates/NORHV.sch
+.subckt NORHV a b y vdd vss
+*.PININFO vdd:B vss:B y:B a:B b:B
+MMP1 net1 a vdd vdd sg13_hv_pmos w=4.0u l=0.45u ng=1
+MMP2 y b net1 vdd sg13_hv_pmos w=4.0u l=0.45u ng=1
+MMN1 y a vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
+MMN2 y b vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/MUXHV.sym # of pins=7
+** sym_path: xschem/logic_gates/MUXHV.sym
+** sch_path: xschem/logic_gates/MUXHV.sch
+.subckt MUXHV in0 in1 sel selb out vdd vss
+*.PININFO out:B in0:B in1:B sel:B selb:B vdd:B vss:B
+MMT0N out selb in0 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMT0P out sel in0 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+MMT1N out sel in1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMT1P out selb in1 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/NORLV.sym # of pins=5
+** sym_path: xschem/logic_gates/NORLV.sym
+** sch_path: xschem/logic_gates/NORLV.sch
+.subckt NORLV a b y vdd vss
+*.PININFO vdd:B vss:B y:B a:B b:B
+MMP1 net1 a vdd vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMP2 y b net1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMN1 y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+MMN2 y b vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  schematics/divider_16.sym # of pins=4
+** sym_path: xschem/schematics/divider_16.sym
+** sch_path: xschem/schematics/divider_16.sch
+.subckt divider_16 in out vdd vss
+*.PININFO in:B out:B vdd:B vss:B
+XB1 in net1 vdd vss INVLV
+XB2 net1 net2 vdd vss INVLV
+X1 net3 net2 net4 net3 vdd vss dff_c2mos
+X2 net5 net4 net6 net5 vdd vss dff_c2mos
+X3 net7 net6 net8 net7 vdd vss dff_c2mos
+X4 net9 net8 out net9 vdd vss dff_c2mos
+.ends
+
+
+* expanding   symbol:  logic_gates/NAND3LV.sym # of pins=6
+** sym_path: xschem/logic_gates/NAND3LV.sym
+** sch_path: xschem/logic_gates/NAND3LV.sch
+.subckt NAND3LV a b c y vdd vss
+*.PININFO vdd:B vss:B y:B a:B b:B c:B
+MMP1 y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+MMP2 y b vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+MMP3 y c vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+MMN1 y a net1 vss sg13_lv_nmos w=1.2u l=0.13u ng=1
+MMN2 net1 b net2 vss sg13_lv_nmos w=1.2u l=0.13u ng=1
+MMN3 net2 c vss vss sg13_lv_nmos w=1.2u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  schematics/dff_c2mos.sym # of pins=6
+** sym_path: xschem/schematics/dff_c2mos.sym
+** sch_path: xschem/schematics/dff_c2mos.sch
+.subckt dff_c2mos d clk q qb vdd vss
+*.PININFO d:B q:B qb:B clk:B vdd:B vss:B
+MMT1N net1 clkb d vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+MMT1P net1 clki d vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+MMT3N net3 clki net2 vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+MMT3P net3 clkb net2 vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+MMT2P net1 clkb net4 vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
+MMT2N net1 clki net4 vss sg13_lv_nmos w=0.3u l=0.13u ng=1
+MMT4P net3 clki net5 vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
+MMT4N net3 clkb net5 vss sg13_lv_nmos w=0.3u l=0.13u ng=1
+XI1 net1 net2 vdd vss INVLV
+XI3 net3 net6 vdd vss INVLV
+XI5 net6 qb vdd vss INVLV
+XI6 qb q vdd vss INVLV
+XI2 net2 net4 vdd vss INVLVW
+XI4 net6 net5 vdd vss INVLVW
+XI0 clk clkb vdd vss INVLV
+XI9 clkb clki vdd vss INVLV
+.ends
+
+
+* expanding   symbol:  logic_gates/INVLVW.sym # of pins=4
+** sym_path: xschem/logic_gates/INVLVW.sym
+** sch_path: xschem/logic_gates/INVLVW.sch
+.subckt INVLVW a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP y a vdd vdd sg13_lv_pmos w=0.3u l=0.3u ng=1
+MMN y a vss vss sg13_lv_nmos w=0.3u l=0.3u ng=1
+.ends
+

@@ -1,0 +1,19 @@
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/MUXLV.sch
+.subckt MUXLV in0 in1 sel out vdd vss
+*.PININFO out:B in0:B in1:B sel:B vdd:B vss:B
+MMT0N out net1 in0 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMT0P out sel in0 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMT1N out sel in1 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMT1P out net1 in1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XI sel net1 vdd vss INVLV
+.ends
+
+* expanding   symbol:  logic_gates/INVLV.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVLV.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVLV.sch
+.subckt INVLV a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
+MMN y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+.ends
+

@@ -1,0 +1,10 @@
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/SCHMLV.sch
+.subckt SCHMLV a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP1 net1 a vdd vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMP2 y a net1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMN2 y a net2 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMN1 net2 a vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMPF vss y net1 vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+MMNF vdd y net2 vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+.ends
