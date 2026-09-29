@@ -77,6 +77,37 @@ most time.
    `level_shifter_up`.
 5. `bidir_channel`.
 
+## Placing a cell's instances from its netlist
+
+`place_instances.py` reads a cell's netlist from `drc/` and writes
+`<cell>.gds` with every instance that cell needs, placed in rows but not
+wired: one SG13_dev PCell per MOSFET (`m=N` becomes N devices) and one
+instance of each child cell, read from the child's `.gds`. Body ties:
+
+- LV cells get one minimum-size (0.78 µm × 0.78 µm) tap per cell, not per
+  device: a `ptap1` if the cell has LV NMOS, an `ntap1` if it has LV PMOS.
+  Move them under the rails so abutting cells share them.
+- HV MOSFETs get the PCell's built-in guard ring instead (`psub` for
+  `nmosHV`, `nwell` for `pmosHV`, 1 µm from the device). These are the pad
+  drivers and the 3.3 V side, where latch-up and substrate noise matter.
+
+Each instance gets its netlist name as a label on the TEXT layer. Run it in
+`layout/` inside the container:
+
+```sh
+K=$PDK_ROOT/ihp-sg13cmos5l/libs.tech/klayout
+export PDK=ihp-sg13cmos5l KLAYOUT_PATH=$HOME/.klayout:$K:$K/tech
+klayout -zz -r place_instances.py -rd cell=AND2LV
+```
+
+The container defaults to `ihp-sg13g2`, and setting `PDK` alone doesn't
+change `KLAYOUT_PATH`, so the SG13CMOS5L PCells wouldn't load.
+
+If `<cell>.gds` already exists it is replaced. Build the children first. If
+a child has no layout yet, the script puts in an empty labelled box and
+prints a warning. Rerun once the child exists. Resistors with no PDK model (like `RSER` in `bidir_channel`)
+are skipped with a warning.
+
 ## Netlists for LVS
 
 `drc/` holds a SPICE netlist for every cell:
