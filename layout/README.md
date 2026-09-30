@@ -11,7 +11,8 @@ Lay out the leaf cells first, then work up the tree.
 ## Tree
 
 `×N` is how many copies a cell places directly. Cells marked *(leaf)* hold
-only transistors.
+only transistors. `sg13g2_hv_*` cells come from the PDK's
+`sg13cmos5l_stdcell_hv` library and need no layout of their own.
 
 ```
 bidir_channel                       one channel (+ 11 HV, 4 LV MOSFETs, 1 resistor)
@@ -40,9 +41,9 @@ bidir_channel                       one channel (+ 11 HV, 4 LV MOSFETs, 1 resist
 ├── NORLV ×1
 ├── SCHMLV ×2
 ├── INVHV1S ×1
-├── INVHV2T ×1
+├── sg13g2_hv_inv_2 ×1            (PDK cell)
 ├── NANDHV ×1
-├── NORHV ×1
+├── sg13g2_hv_nor2_2 ×1           (PDK cell)
 └── MUXHV ×1
 ```
 
@@ -64,25 +65,40 @@ most time.
 | delay_2ns | 2 | bidir_channel |
 | SCHMLV *(leaf)* | 2 | bidir_channel |
 | divider_16, MUXLV | 1 each | bidir_channel |
-| INVHV1S, INVHV2T, NANDHV, NORHV, MUXHV *(leaf)* | 1 each | bidir_channel |
+| INVHV1S, NANDHV, MUXHV *(leaf)* | 1 each | bidir_channel |
 
 ## Suggested order
 
 1. `INVLV`, then the other LV leaves (`INVLVW`, `NANDLV`, `NORLV`,
    `NAND3LV`, `SCHMLV`). Use one cell height and the same power rails for
    all of them so they butt together.
-2. The HV leaves (`INVHV1S`, `INVHV2T`, `NANDHV`, `NORHV`, `MUXHV`).
+2. The HV leaves (`INVHV1S`, `NANDHV`, `MUXHV`).
 3. The small composites: `AND2LV`, `AND3LV`, `OR2LV`, `MUXLV`.
 4. The blocks: `dff_c2mos`, then `divider_16`, `delay_2ns` and
    `level_shifter_up`.
 5. `bidir_channel`.
+
+## PDK standard cells in KLayout
+
+The PDK registers only the 3.3 V cells (`sg13cmos5l_stdcell_hv`) as a
+KLayout library. `klayout/pymacros/sg13cmos5l_stdcell.lym` adds the 1.2 V
+cells as `sg13cmos5l_stdcell`. It lives in the container's `~/.klayout`,
+not in the image, so copy it in again after recreating the container:
+
+```sh
+./osic bash -c 'mkdir -p ~/.klayout/pymacros && cp layout/klayout/pymacros/sg13cmos5l_stdcell.lym ~/.klayout/pymacros/'
+```
+
+Run this from the project folder.
 
 ## Placing a cell's instances from its netlist
 
 `place_instances.py` reads a cell's netlist from `drc/` and writes
 `<cell>.gds` with every instance that cell needs, placed in rows but not
 wired: one SG13_dev PCell per MOSFET (`m=N` becomes N devices) and one
-instance of each child cell, read from the child's `.gds`. Body ties:
+instance of each child cell, read from the child's `.gds`. Children named
+`sg13g2_hv_*` or `sg13cmos5l_*` are PDK standard cells and are placed from
+the KLayout libraries above instead. Body ties:
 
 - LV cells get one minimum-size (0.78 µm × 0.78 µm) tap per cell, not per
   device: a `ptap1` if the cell has LV NMOS, an `ntap1` if it has LV PMOS.

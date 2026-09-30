@@ -175,20 +175,19 @@ N 1910 1180 1910 1300 {}
 N 1820 1180 1840 1180 {}
 N 1620 1000 1880 1000 {}
 N 1880 1000 1990 1000 {}
-N 2130 1000 2230 1000 {}
-N 2370 1000 2400 1000 {}
+N 2130 1000 2260 1000 {}
+N 2340 1000 2400 1000 {}
 N 2400 1000 2430 1000 {}
 N 2400 980 2400 1000 {}
 N 2430 950 2530 950 {}
 N 2430 950 2430 1000 {}
-N 2430 1000 2430 1210 {}
-N 2430 1210 2530 1210 {}
+N 2430 1000 2430 1200 {}
+N 2430 1200 2540 1200 {}
 N 2510 970 2530 970 {}
-N 2510 1230 2530 1230 {}
+N 2510 1240 2540 1240 {}
 N 2670 960 2740 960 {}
-N 2670 1220 2740 1220 {}
 N 2600 1010 2600 1030 {}
-N 2600 1150 2600 1170 {}
+N 2660 1220 2740 1220 {}
 N 2780 880 2780 930 {}
 N 2780 960 2810 960 {}
 N 2810 880 2810 960 {}
@@ -200,8 +199,6 @@ N 2780 1090 2780 1190 {}
 N 2780 1090 2940 1090 {}
 N 2060 880 2060 950 {}
 N 2060 1050 2060 1300 {}
-N 2300 880 2300 950 {}
-N 2300 1050 2300 1300 {}
 N -600 880 1350 880 {}
 N 1350 880 1380 880 {}
 N 1380 880 1620 880 {}
@@ -210,6 +207,7 @@ N 1650 880 2060 880 {}
 N 2060 880 2300 880 {}
 N 2300 880 2600 880 {}
 N 2600 880 2780 880 {}
+N 2600 880 2600 910 {}
 N 2780 880 2810 880 {}
 N -600 1300 0 1300 {}
 N 0 1300 240 1300 {}
@@ -227,8 +225,6 @@ N 2060 1300 2300 1300 {}
 N 2300 1300 2600 1300 {}
 N 2600 1300 2780 1300 {}
 N 2780 1300 2810 1300 {}
-N 2600 880 2600 910 {}
-N 2600 1270 2600 1300 {}
 N -50 1700 -30 1700 {}
 N 30 1700 120 1700 {}
 N 120 1640 160 1640 {}
@@ -394,16 +390,14 @@ C {devices/lab_pin.sym} 1680 1180 0 1 {name=l40 sig_type=std_logic lab=a_nb}
 C {sg13cmos5l_pr/sg13_hv_nmos.sym} 1860 1180 0 0 {name=MN5 model=sg13_hv_nmos w=0.5u l=0.45u ng=1 m=1 spiceprefix=X}
 C {devices/lab_pin.sym} 1820 1180 0 0 {name=l41 sig_type=std_logic lab=enb_h}
 C {logic_gates/INVHV1S.sym} 2060 1000 0 0 {name=XH1}
-C {logic_gates/INVHV2T.sym} 2300 1000 0 0 {name=XH2}
+C {sg13g2_hv_inv_2.sym} 2300 1000 0 0 {name=XH2 VDD=vddh VSS=vss prefix=sg13g2_hv_ }
 C {logic_gates/NANDHV.sym} 2600 960 0 0 {name=XD1}
-C {logic_gates/NORHV.sym} 2600 1220 0 0 {name=XD2}
+C {sg13g2_hv_nor2_2.sym} 2600 1220 0 0 {name=XD2 VDD=vddh VSS=vss prefix=sg13g2_hv_ }
 C {sg13cmos5l_pr/sg13_hv_pmos.sym} 2760 960 0 0 {name=MPD model=sg13_hv_pmos w=12u l=0.45u ng=1 m=8 spiceprefix=X}
 C {sg13cmos5l_pr/sg13_hv_nmos.sym} 2760 1220 0 0 {name=MND model=sg13_hv_nmos w=12u l=0.45u ng=1 m=4 spiceprefix=X}
 C {devices/lab_pin.sym} 2400 980 0 0 {name=l42 sig_type=std_logic lab=z_h}
 C {devices/lab_pin.sym} 2510 970 0 0 {name=l43 sig_type=std_logic lab=en_b_h}
-C {devices/lab_pin.sym} 2510 1230 0 0 {name=l44 sig_type=std_logic lab=enb_b_h}
-C {devices/lab_pin.sym} 2600 1030 0 0 {name=l45 sig_type=std_logic lab=vss}
-C {devices/lab_pin.sym} 2600 1150 0 0 {name=l46 sig_type=std_logic lab=vddh}
+C {devices/lab_pin.sym} 2510 1240 0 0 {name=l44 sig_type=std_logic lab=enb_b_h}
 C {devices/iopin.sym} 2940 1090 0 0 {name=p7 lab=b_pad}
 C {devices/iopin.sym} -600 880 0 1 {name=p8 lab=vddh}
 C {devices/lab_pin.sym} -600 1300 0 0 {name=l47 sig_type=std_logic lab=vss}
@@ -438,3 +432,4 @@ C {devices/lab_pin.sym} 190 2060 0 0 {name=l62 sig_type=std_logic lab=z_l}
 C {devices/iopin.sym} 560 2060 0 0 {name=p9 lab=ring_div}
 C {devices/lab_pin.sym} 300 1990 0 0 {name=l63 sig_type=std_logic lab=vddl}
 C {devices/lab_pin.sym} 300 2130 0 0 {name=l64 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 2600 1030 0 0 {name=l45 sig_type=std_logic lab=vss}

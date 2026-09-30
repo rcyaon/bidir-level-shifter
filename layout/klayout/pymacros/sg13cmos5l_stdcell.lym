@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<klayout-macro>
+ <description>Register sg13cmos5l_stdcell (LV) as a KLayout cell library</description>
+ <version/>
+ <category>pymacros</category>
+ <prolog/>
+ <epilog/>
+ <doc/>
+ <autorun>true</autorun>
+ <autorun-early>false</autorun-early>
+ <priority>0</priority>
+ <shortcut/>
+ <show-in-menu>false</show-in-menu>
+ <group-name/>
+ <menu-path/>
+ <interpreter>python</interpreter>
+ <dsl-interpreter-name/>
+ <text># Register the thin-oxide (1.2 V) standard cells as a KLayout cell library.
+#
+# The PDK ships a macro for sg13cmos5l_stdcell_hv only, so the LV cells in
+# libs.ref/sg13cmos5l_stdcell never show up in the Instance dialog. This does
+# the same for them, under the library name "sg13cmos5l_stdcell".
+#
+# Install by copying into ~/.klayout/pymacros/ inside the container
+# (see layout/README.md). The GDS is found through $PDK_ROOT.
+
+import os
+import pya
+
+LIB_NAME = "sg13cmos5l_stdcell"
+
+_gds = os.path.join(os.environ.get("PDK_ROOT", "/foss/pdks"), "ihp-sg13cmos5l",
+                    "libs.ref", LIB_NAME, "gds", LIB_NAME + ".gds")
+if not os.path.isfile(_gds):
+    print("sg13cmos5l_stdcell.lym: library GDS not found at " + _gds)
+else:
+    _lib = pya.Library()
+    _lib.description = "IHP SG13CMOS5L thin-oxide (1.2 V) standard cells"
+    _lib.layout().read(_gds)
+    _lib.register(LIB_NAME)
+    print("registered KLayout library '%s' (%d cells) from %s" %
+          (LIB_NAME, _lib.layout().cells(), _gds))
+</text>
+</klayout-macro>

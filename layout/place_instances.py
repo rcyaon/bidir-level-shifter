@@ -7,7 +7,8 @@
 #     a ptap1 if the cell has LV NMOS, an ntap1 if it has LV PMOS,
 #   - HV MOSFETs: the PCell's own guard ring instead of a tap (psub ring
 #     for nmosHV, nwell ring for pmosHV), for the pads and the 3.3 V side,
-#   - one instance per X line, taken from the child's <child>.gds.
+#   - one instance per X line, taken from the child's <child>.gds, or from
+#     the PDK's KLayout library for sg13g2_hv_* / sg13cmos5l_* stdcells.
 # Only the cell's own devices are placed, not the ones inside its children,
 # so the hierarchy matches layout/README.md. Build children first.
 #
@@ -34,6 +35,10 @@ PCELLS = {
 TAP_MIN = "0.78u"          # ptap1_minLW / ntap1_minLW in sg13cmos5l_tech.json
 TAPS = {"n": "ptap1", "p": "ntap1"}
 RINGS = {"nmosHV": "psub", "pmosHV": "nwell"}   # guardRingType per HV PCell
+STDCELL_LIBS = {                   # netlist name prefix -> KLayout library
+    "sg13g2_hv_": "sg13cmos5l_stdcell_hv",
+    "sg13cmos5l_": "sg13cmos5l_stdcell",
+}
 
 
 def fail(msg):
@@ -84,11 +89,29 @@ def is_empty(path):
     return all(c.is_empty() for c in ly.each_cell())
 
 
+def stdcell_lib(name):
+    """Return the KLayout library holding PDK standard cell `name`, or None."""
+    for prefix, lib_name in STDCELL_LIBS.items():
+        if name.startswith(prefix):
+            lib = pya.Library.library_by_name(lib_name)
+            if lib is None:
+                fail(f"library {lib_name} not loaded; see README.md, "
+                     f"\"PDK standard cells in KLayout\"")
+            return lib
+    return None
+
+
 def load_child(layout, name, warnings):
     """Return the cell index of child `name`, reading <name>.gds if needed."""
     cell = layout.cell(name)
     if cell:
         return cell.cell_index()
+    lib = stdcell_lib(name)
+    if lib:
+        lib_cell = lib.layout().cell(name)
+        if lib_cell is None:
+            fail(f"{name} not in library {lib.name()}")
+        return layout.add_lib_cell(lib, lib_cell.cell_index())
     path = os.path.join(HERE, name + ".gds")
     if os.path.isfile(path) and not is_empty(path):
         opt = pya.LoadLayoutOptions()

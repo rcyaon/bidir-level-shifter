@@ -1,8 +1,0 @@
-** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/NORHV.sch
-.subckt NORHV a b y vdd vss
-*.PININFO vdd:B vss:B y:B a:B b:B
-MMP1 net1 a vdd vdd sg13_hv_pmos w=4.0u l=0.45u ng=1
-MMP2 y b net1 vdd sg13_hv_pmos w=4.0u l=0.45u ng=1
-MMN1 y a vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
-MMN2 y b vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
-.ends
