@@ -1,4 +1,4 @@
-** sch_path: xschem/schematics/dff_c2mos.sch
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/dff_c2mos.sch
 .subckt dff_c2mos d clk q qb vdd vss
 *.PININFO d:B q:B qb:B clk:B vdd:B vss:B
 MMT1N net1 clkb d vss sg13_lv_nmos w=0.6u l=0.13u ng=1
@@ -9,29 +9,29 @@ MMT2P net1 clkb net4 vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
 MMT2N net1 clki net4 vss sg13_lv_nmos w=0.3u l=0.13u ng=1
 MMT4P net3 clki net5 vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
 MMT4N net3 clkb net5 vss sg13_lv_nmos w=0.3u l=0.13u ng=1
-XI1 net1 net2 vdd vss INVLV
-XI3 net3 net6 vdd vss INVLV
-XI5 net6 qb vdd vss INVLV
-XI6 qb q vdd vss INVLV
+XI1 net2 net1 vdd vss sg13cmos5l_inv_1
+XI3 net6 net3 vdd vss sg13cmos5l_inv_1
+XI5 qb net6 vdd vss sg13cmos5l_inv_1
+XI6 q qb vdd vss sg13cmos5l_inv_1
 XI2 net2 net4 vdd vss INVLVW
 XI4 net6 net5 vdd vss INVLVW
-XI0 clk clkb vdd vss INVLV
-XI9 clkb clki vdd vss INVLV
+XI0 clkb clk vdd vss sg13cmos5l_inv_1
+XI9 clki clkb vdd vss sg13cmos5l_inv_1
 .ends
 
-* expanding   symbol:  logic_gates/INVLV.sym # of pins=4
-** sym_path: xschem/logic_gates/INVLV.sym
-** sch_path: xschem/logic_gates/INVLV.sch
-.subckt INVLV a y vdd vss
-*.PININFO vdd:B vss:B y:B a:B
-MMP y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
-MMN y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+* expanding   symbol:  logic_gates/sg13cmos5l_inv_1.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sch
+.subckt sg13cmos5l_inv_1 Y A VDD VSS
+*.PININFO Y:B A:B VDD:B VSS:B
+MMN0 Y A VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMP0 Y A VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
 .ends
 
 
 * expanding   symbol:  logic_gates/INVLVW.sym # of pins=4
-** sym_path: xschem/logic_gates/INVLVW.sym
-** sch_path: xschem/logic_gates/INVLVW.sch
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVLVW.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVLVW.sch
 .subckt INVLVW a y vdd vss
 *.PININFO vdd:B vss:B y:B a:B
 MMP y a vdd vdd sg13_lv_pmos w=0.3u l=0.3u ng=1

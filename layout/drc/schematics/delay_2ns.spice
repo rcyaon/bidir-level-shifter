@@ -1,22 +1,22 @@
-** sch_path: xschem/schematics/delay_2ns.sch
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/delay_2ns.sch
 .subckt delay_2ns a y vdd vss
 *.PININFO a:B y:B vdd:B vss:B
-X1 a net1 vdd vss INVLV
-C1 net1 vss 0.35p
-X2 net1 net2 vdd vss INVLV
-C2 net2 vss 0.35p
-X3 net2 net3 vdd vss INVLV
-C3 net3 vss 0.35p
-X4 net3 y vdd vss INVLV
-C4 y vss 0.15p
+X1 net1 a vdd vss sg13cmos5l_inv_1
+MMC1 vss net1 vss vss sg13_lv_nmos w=7.4u l=6u ng=1
+X2 net2 net1 vdd vss sg13cmos5l_inv_1
+MMC2 vss net2 vss vss sg13_lv_nmos w=7.4u l=6u ng=1
+X3 net3 net2 vdd vss sg13cmos5l_inv_1
+MMC3 vss net3 vss vss sg13_lv_nmos w=7.4u l=6u ng=1
+X4 y net3 vdd vss sg13cmos5l_inv_1
+MMC4 vss y vss vss sg13_lv_nmos w=3.2u l=6u ng=1
 .ends
 
-* expanding   symbol:  logic_gates/INVLV.sym # of pins=4
-** sym_path: xschem/logic_gates/INVLV.sym
-** sch_path: xschem/logic_gates/INVLV.sch
-.subckt INVLV a y vdd vss
-*.PININFO vdd:B vss:B y:B a:B
-MMP y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
-MMN y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+* expanding   symbol:  logic_gates/sg13cmos5l_inv_1.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sch
+.subckt sg13cmos5l_inv_1 Y A VDD VSS
+*.PININFO Y:B A:B VDD:B VSS:B
+MMN0 Y A VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMP0 Y A VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
 .ends
 

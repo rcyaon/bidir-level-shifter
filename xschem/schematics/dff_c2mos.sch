@@ -99,10 +99,10 @@ C {devices/lab_pin.sym} 500 320 3 0 {name=l12 sig_type=std_logic lab=vdd}
 C {devices/lab_pin.sym} 500 440 1 0 {name=l13 sig_type=std_logic lab=vss}
 C {devices/lab_pin.sym} 500 520 0 0 {name=l14 sig_type=std_logic lab=clkb}
 C {devices/lab_pin.sym} 500 240 0 0 {name=l15 sig_type=std_logic lab=clki}
-C {logic_gates/INVLV.sym} 220 0 0 0 {name=XI1}
-C {logic_gates/INVLV.sym} 660 0 0 0 {name=XI3}
-C {logic_gates/INVLV.sym} 900 0 0 0 {name=XI5}
-C {logic_gates/INVLV.sym} 1120 0 0 0 {name=XI6}
+C {logic_gates/sg13cmos5l_inv_1.sym} 220 0 0 0 {name=XI1}
+C {logic_gates/sg13cmos5l_inv_1.sym} 660 0 0 0 {name=XI3}
+C {logic_gates/sg13cmos5l_inv_1.sym} 900 0 0 0 {name=XI5}
+C {logic_gates/sg13cmos5l_inv_1.sym} 1120 0 0 0 {name=XI6}
 C {logic_gates/INVLVW.sym} 220 340 0 1 {name=XI2}
 C {logic_gates/INVLVW.sym} 660 340 0 1 {name=XI4}
 C {devices/iopin.sym} -240 0 0 1 {name=p0 lab=d}
@@ -120,8 +120,8 @@ C {devices/lab_pin.sym} 220 270 0 0 {name=l24 sig_type=std_logic lab=vdd}
 C {devices/lab_pin.sym} 220 410 0 0 {name=l25 sig_type=std_logic lab=vss}
 C {devices/lab_pin.sym} 660 270 0 0 {name=l26 sig_type=std_logic lab=vdd}
 C {devices/lab_pin.sym} 660 410 0 0 {name=l27 sig_type=std_logic lab=vss}
-C {logic_gates/INVLV.sym} 0 -260 0 0 {name=XI0}
-C {logic_gates/INVLV.sym} 260 -260 0 0 {name=XI9}
+C {logic_gates/sg13cmos5l_inv_1.sym} 0 -260 0 0 {name=XI0}
+C {logic_gates/sg13cmos5l_inv_1.sym} 260 -260 0 0 {name=XI9}
 C {devices/iopin.sym} -240 -260 0 1 {name=p3 lab=clk}
 C {devices/lab_pin.sym} 130 -280 0 0 {name=l28 sig_type=std_logic lab=clkb}
 C {devices/lab_pin.sym} 380 -260 0 1 {name=l29 sig_type=std_logic lab=clki}

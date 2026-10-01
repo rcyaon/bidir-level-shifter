@@ -41,14 +41,26 @@ N 130 100 130 120 {}
 N 390 100 390 120 {}
 N 650 100 650 120 {}
 N 910 100 910 120 {}
-C {logic_gates/INVLV.sym} 0 0 0 0 {name=X1}
-C {devices/capa.sym} 130 70 0 0 {name=C1 value=0.35p footprint=1206 m=1}
-C {logic_gates/INVLV.sym} 260 0 0 0 {name=X2}
-C {devices/capa.sym} 390 70 0 0 {name=C2 value=0.35p footprint=1206 m=1}
-C {logic_gates/INVLV.sym} 520 0 0 0 {name=X3}
-C {devices/capa.sym} 650 70 0 0 {name=C3 value=0.35p footprint=1206 m=1}
-C {logic_gates/INVLV.sym} 780 0 0 0 {name=X4}
-C {devices/capa.sym} 910 70 0 0 {name=C4 value=0.15p footprint=1206 m=1}
+C {logic_gates/sg13cmos5l_inv_1.sym} 0 0 0 0 {name=X1}
+C {sg13cmos5l_pr/sg13_lv_nmos.sym} 150 40 0 0 {name=MC1 model=sg13_lv_nmos w=7.4u l=6u ng=1 m=1 spiceprefix=X}
+C {devices/lab_pin.sym} 170 10 0 1 {name=l101 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 170 40 0 1 {name=l102 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 170 70 0 1 {name=l103 sig_type=std_logic lab=vss}
+C {logic_gates/sg13cmos5l_inv_1.sym} 260 0 0 0 {name=X2}
+C {sg13cmos5l_pr/sg13_lv_nmos.sym} 410 40 0 0 {name=MC2 model=sg13_lv_nmos w=7.4u l=6u ng=1 m=1 spiceprefix=X}
+C {devices/lab_pin.sym} 430 10 0 1 {name=l104 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 430 40 0 1 {name=l105 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 430 70 0 1 {name=l106 sig_type=std_logic lab=vss}
+C {logic_gates/sg13cmos5l_inv_1.sym} 520 0 0 0 {name=X3}
+C {sg13cmos5l_pr/sg13_lv_nmos.sym} 670 40 0 0 {name=MC3 model=sg13_lv_nmos w=7.4u l=6u ng=1 m=1 spiceprefix=X}
+C {devices/lab_pin.sym} 690 10 0 1 {name=l107 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 690 40 0 1 {name=l108 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 690 70 0 1 {name=l109 sig_type=std_logic lab=vss}
+C {logic_gates/sg13cmos5l_inv_1.sym} 780 0 0 0 {name=X4}
+C {sg13cmos5l_pr/sg13_lv_nmos.sym} 930 40 0 0 {name=MC4 model=sg13_lv_nmos w=3.2u l=6u ng=1 m=1 spiceprefix=X}
+C {devices/lab_pin.sym} 950 10 0 1 {name=l110 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 950 40 0 1 {name=l111 sig_type=std_logic lab=vss}
+C {devices/lab_pin.sym} 950 70 0 1 {name=l112 sig_type=std_logic lab=vss}
 C {devices/iopin.sym} -240 0 0 1 {name=p0 lab=a}
 C {devices/iopin.sym} 1020 0 0 0 {name=p1 lab=y}
 C {devices/iopin.sym} -240 -120 0 1 {name=p2 lab=vdd}

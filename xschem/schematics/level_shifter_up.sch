@@ -65,7 +65,7 @@ C {devices/iopin.sym} -240 -100 0 1 {name=p2 lab=qb_h}
 C {devices/iopin.sym} 360 -100 0 0 {name=p3 lab=q_h}
 C {devices/iopin.sym} -240 -40 0 1 {name=p4 lab=vddl}
 C {devices/lab_pin.sym} 290 -40 0 1 {name=l0 sig_type=std_logic lab=vddl}
-C {logic_gates/INVLV.sym} 0 260 0 0 {name=XI}
+C {logic_gates/sg13cmos5l_inv_1.sym} 0 260 0 0 {name=XI}
 C {devices/lab_pin.sym} 0 210 1 0 {name=l1 sig_type=std_logic lab=vddl}
 C {devices/lab_pin.sym} 0 310 3 0 {name=l2 sig_type=std_logic lab=vss}
 C {devices/iopin.sym} -240 80 0 1 {name=p5 lab=in}

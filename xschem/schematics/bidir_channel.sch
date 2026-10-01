@@ -310,11 +310,11 @@ N 190 2060 210 2060 {}
 N 390 2060 560 2060 {}
 N 300 1990 300 2010 {}
 N 300 2110 300 2130 {}
-C {logic_gates/INVLV.sym} 0 0 0 0 {name=XU1}
-C {logic_gates/OR2LV.sym} 300 0 0 0 {name=XO1}
-C {logic_gates/AND3LV.sym} 600 0 0 0 {name=XU3}
+C {logic_gates/sg13cmos5l_inv_1.sym} 0 0 0 0 {name=XU1}
+C {logic_gates/sg13cmos5l_or2_1.sym} 300 0 0 0 {name=XO1}
+C {logic_gates/sg13cmos5l_and3_1.sym} 600 0 0 0 {name=XU3}
 C {schematics/delay_2ns.sym} 900 0 0 0 {name=XU4}
-C {logic_gates/AND2LV.sym} 1200 0 0 0 {name=XU5}
+C {logic_gates/sg13cmos5l_and2_1.sym} 1200 0 0 0 {name=XU5}
 C {devices/iopin.sym} -600 0 0 1 {name=p0 lab=dir}
 C {devices/lab_pin.sym} 210 10 0 0 {name=l0 sig_type=std_logic lab=tm}
 C {devices/lab_pin.sym} 510 0 0 0 {name=l1 sig_type=std_logic lab=oe}
@@ -324,12 +324,12 @@ C {devices/lab_pin.sym} 1110 -10 0 0 {name=l4 sig_type=std_logic lab=eur}
 C {devices/lab_pin.sym} 1290 0 0 1 {name=l5 sig_type=std_logic lab=en_up}
 C {devices/iopin.sym} -600 -120 0 1 {name=p1 lab=vddl}
 C {devices/iopin.sym} -600 120 0 1 {name=p2 lab=vss}
-C {logic_gates/INVLV.sym} 0 360 0 0 {name=XU2}
-C {logic_gates/OR2LV.sym} 300 360 0 0 {name=XO2}
-C {logic_gates/AND3LV.sym} 600 360 0 0 {name=XU6}
+C {logic_gates/sg13cmos5l_inv_1.sym} 0 360 0 0 {name=XU2}
+C {logic_gates/sg13cmos5l_or2_1.sym} 300 360 0 0 {name=XO2}
+C {logic_gates/sg13cmos5l_and3_1.sym} 600 360 0 0 {name=XU6}
 C {schematics/delay_2ns.sym} 900 360 0 0 {name=XU7}
-C {logic_gates/AND2LV.sym} 1200 360 0 0 {name=XU8}
-C {logic_gates/INVLV.sym} 1500 360 0 0 {name=XU9}
+C {logic_gates/sg13cmos5l_and2_1.sym} 1200 360 0 0 {name=XU8}
+C {logic_gates/sg13cmos5l_inv_1.sym} 1500 360 0 0 {name=XU9}
 C {devices/iopin.sym} -600 360 0 1 {name=p3 lab=oe_n}
 C {devices/lab_pin.sym} 90 360 0 1 {name=l6 sig_type=std_logic lab=oe}
 C {devices/lab_pin.sym} 210 350 0 0 {name=l7 sig_type=std_logic lab=dir}
@@ -364,10 +364,10 @@ C {devices/lab_pin.sym} 640 710 0 1 {name=l30 sig_type=std_logic lab=tmb_h}
 C {devices/lab_pin.sym} 1140 690 0 1 {name=l31 sig_type=std_logic lab=en_b_h}
 C {devices/lab_pin.sym} 1140 710 0 1 {name=l32 sig_type=std_logic lab=enb_b_h}
 C {logic_gates/SCHMLV.sym} 0 1180 0 0 {name=XRX}
-C {logic_gates/INVLV.sym} 240 1180 0 0 {name=XRB}
+C {logic_gates/sg13cmos5l_inv_1.sym} 240 1180 0 0 {name=XRB}
 C {logic_gates/MUXLV.sym} 560 1180 0 0 {name=XM1}
-C {logic_gates/NANDLV.sym} 860 1180 0 0 {name=XG1}
-C {logic_gates/INVLV.sym} 1100 1180 0 0 {name=XG2}
+C {logic_gates/sg13cmos5l_nand2_1.sym} 860 1180 0 0 {name=XG1}
+C {logic_gates/sg13cmos5l_inv_1.sym} 1100 1180 0 0 {name=XG2}
 C {devices/iopin.sym} -600 1180 0 1 {name=p6 lab=a_pad}
 C {devices/lab_pin.sym} 460 1180 0 0 {name=l33 sig_type=std_logic lab=z_l}
 C {devices/lab_pin.sym} 460 1200 0 0 {name=l34 sig_type=std_logic lab=tm}
@@ -397,7 +397,7 @@ C {devices/lab_pin.sym} 2510 1240 0 0 {name=l44 sig_type=std_logic lab=enb_b_h}
 C {devices/iopin.sym} 2940 1090 0 0 {name=p7 lab=b_pad}
 C {devices/iopin.sym} -600 880 0 1 {name=p8 lab=vddh}
 C {devices/lab_pin.sym} -600 1300 0 0 {name=l47 sig_type=std_logic lab=vss}
-C {devices/res.sym} 0 1700 3 0 {name=RSER value=200 footprint=1206 m=1}
+C {sg13cmos5l_pr/rppd.sym} 0 1700 3 0 {name=RSER w=1.0e-6 l=0.5e-6 model=rppd body=vss spiceprefix=X b=0 m=1}
 C {devices/lab_pin.sym} -50 1700 0 0 {name=l48 sig_type=std_logic lab=b_pad}
 C {sg13cmos5l_pr/sg13_hv_pmos.sym} 180 1640 0 0 {name=MP6 model=sg13_hv_pmos w=1.5u l=0.45u ng=1 m=1 spiceprefix=X}
 C {sg13cmos5l_pr/sg13_hv_nmos.sym} 180 1760 0 0 {name=MN7 model=sg13_hv_nmos w=1.0u l=0.45u ng=1 m=1 spiceprefix=X}
@@ -410,10 +410,10 @@ C {devices/lab_pin.sym} -60 1860 0 0 {name=l53 sig_type=std_logic lab=vss}
 C {sg13cmos5l_pr/sg13_hv_pmos.sym} 760 1640 0 0 {name=MP8 model=sg13_hv_pmos w=1.0u l=0.45u ng=1 m=1 spiceprefix=X}
 C {sg13cmos5l_pr/sg13_hv_nmos.sym} 760 1760 0 0 {name=MN9 model=sg13_hv_nmos w=0.8u l=0.45u ng=1 m=1 spiceprefix=X}
 C {logic_gates/SCHMLV.sym} 1000 1700 0 0 {name=XS2}
-C {logic_gates/NANDLV.sym} 1260 1700 0 0 {name=XPK}
+C {logic_gates/sg13cmos5l_nand2_1.sym} 1260 1700 0 0 {name=XPK}
 C {devices/lab_pin.sym} 1170 1710 0 0 {name=l54 sig_type=std_logic lab=en_a}
-C {logic_gates/NANDLV.sym} 1600 1620 0 0 {name=XA1}
-C {logic_gates/NORLV.sym} 1600 1780 0 0 {name=XA2}
+C {logic_gates/sg13cmos5l_nand2_1.sym} 1600 1620 0 0 {name=XA1}
+C {logic_gates/sg13cmos5l_nor2_1.sym} 1600 1780 0 0 {name=XA2}
 C {devices/lab_pin.sym} 1380 1680 0 0 {name=l55 sig_type=std_logic lab=z_l}
 C {devices/lab_pin.sym} 1510 1630 0 0 {name=l56 sig_type=std_logic lab=en_a}
 C {devices/lab_pin.sym} 1510 1790 0 0 {name=l57 sig_type=std_logic lab=en_ab}

@@ -18,6 +18,7 @@ C {devices/lab_pin.sym} 0 80 3 0 {name=l9 sig_type=std_logic lab=0}
 T {bidir_channel: 1.2 V to 3.3 V, then dir flips, then 3.3 V to 1.2 V} -300 -420 0 0 1 1 {}
 C {devices/code_shown.sym} -300 160 0 0 {name=SIM only_toplevel=false value=".lib cornerMOSlv.lib mos_tt
 .lib cornerMOShv.lib mos_tt
+.lib cornerRES.lib res_typ
 VDL vddl 0 1.2
 VDH vddh 0 3.3
 Ven en 0 PWL(0 0 3n 0 3.5n 1.2)

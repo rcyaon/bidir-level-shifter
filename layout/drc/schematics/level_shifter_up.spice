@@ -1,4 +1,4 @@
-** sch_path: xschem/schematics/level_shifter_up.sch
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/level_shifter_up.sch
 .subckt level_shifter_up in q_h qb_h vddl vddh vss
 *.PININFO vddh:B vss:B qb_h:B q_h:B vddl:B in:B
 MMP1 qb_h q_h vddh vddh sg13_hv_pmos w=0.5u l=1.6u ng=1
@@ -7,15 +7,15 @@ MMC1 qb_h vddl net1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
 MMC2 q_h vddl net2 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
 MMN1 net1 in vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
 MMN2 net2 net3 vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
-XI in net3 vddl vss INVLV
+XI net3 in vddl vss sg13cmos5l_inv_1
 .ends
 
-* expanding   symbol:  logic_gates/INVLV.sym # of pins=4
-** sym_path: xschem/logic_gates/INVLV.sym
-** sch_path: xschem/logic_gates/INVLV.sch
-.subckt INVLV a y vdd vss
-*.PININFO vdd:B vss:B y:B a:B
-MMP y a vdd vdd sg13_lv_pmos w=1.0u l=0.13u ng=1
-MMN y a vss vss sg13_lv_nmos w=0.5u l=0.13u ng=1
+* expanding   symbol:  logic_gates/sg13cmos5l_inv_1.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sch
+.subckt sg13cmos5l_inv_1 Y A VDD VSS
+*.PININFO Y:B A:B VDD:B VSS:B
+MMN0 Y A VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMP0 Y A VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
 .ends
 

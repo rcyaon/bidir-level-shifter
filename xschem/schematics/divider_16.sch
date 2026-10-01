@@ -53,8 +53,8 @@ N -240 -120 0 -120 {}
 N 0 -120 220 -120 {}
 N -240 120 0 120 {}
 N 0 120 220 120 {}
-C {logic_gates/INVLV.sym} 0 10 0 0 {name=XB1}
-C {logic_gates/INVLV.sym} 220 10 0 0 {name=XB2}
+C {logic_gates/sg13cmos5l_inv_1.sym} 0 10 0 0 {name=XB1}
+C {logic_gates/sg13cmos5l_inv_1.sym} 220 10 0 0 {name=XB2}
 C {schematics/dff_c2mos.sym} 520 0 0 0 {name=X1}
 C {schematics/dff_c2mos.sym} 860 0 0 0 {name=X2}
 C {schematics/dff_c2mos.sym} 1200 0 0 0 {name=X3}

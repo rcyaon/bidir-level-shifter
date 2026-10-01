@@ -53,7 +53,7 @@ C {devices/iopin.sym} 620 -80 0 0 {name=p0 lab=out}
 C {devices/iopin.sym} -300 160 0 1 {name=p1 lab=in0}
 C {devices/iopin.sym} -300 240 0 1 {name=p2 lab=in1}
 C {devices/iopin.sym} -300 200 0 1 {name=p3 lab=sel}
-C {logic_gates/INVLV.sym} -170 -200 0 0 {name=XI}
+C {logic_gates/sg13cmos5l_inv_1.sym} -170 -200 0 0 {name=XI}
 C {devices/lab_pin.sym} -170 -250 1 0 {name=l4 sig_type=std_logic lab=vdd}
 C {devices/lab_pin.sym} -170 -150 3 0 {name=l5 sig_type=std_logic lab=vss}
 C {devices/iopin.sym} -300 -300 0 1 {name=p4 lab=vdd}

@@ -11,72 +11,52 @@ Lay out the leaf cells first, then work up the tree.
 ## Tree
 
 `×N` is how many copies a cell places directly. Cells marked *(leaf)* hold
-only transistors. `sg13g2_hv_*` cells come from the PDK's
-`sg13cmos5l_stdcell_hv` library and need no layout of their own.
+only transistors. `sg13cmos5l_*` (1.2 V) and `sg13g2_hv_*` (3.3 V) cells come
+from the PDK's standard-cell libraries and need no layout of their own.
 
 ```
-bidir_channel                       one channel (+ 11 HV, 4 LV MOSFETs, 1 resistor)
-├── level_shifter_up ×3             (+ 4 HV, 2 LV MOSFETs)
-│   └── INVLV ×1
-├── divider_16 ×1
-│   ├── dff_c2mos ×4                (+ 8 LV MOSFETs)
-│   │   ├── INVLV ×6
-│   │   └── INVLVW ×2
-│   └── INVLV ×2
-├── delay_2ns ×2                    (+ 4 capacitors)
-│   └── INVLV ×4
-├── AND2LV ×2
-│   ├── NANDLV ×1
-│   └── INVLV ×1
-├── AND3LV ×2
-│   ├── NAND3LV ×1
-│   └── INVLV ×1
-├── OR2LV ×2
-│   ├── NORLV ×1
-│   └── INVLV ×1
-├── MUXLV ×1                        (+ 4 LV MOSFETs)
-│   └── INVLV ×1
-├── INVLV ×5
-├── NANDLV ×3
-├── NORLV ×1
-├── SCHMLV ×2
-├── sg13g2_hv_inv_1 ×1            (PDK cell)
-├── sg13g2_hv_inv_2 ×1            (PDK cell)
-├── NANDHV ×1
-├── sg13g2_hv_nor2_2 ×1           (PDK cell)
-└── MUXHV ×1
+bidir_channel                       one channel (+ 21 HV, 8 LV MOSFETs, 1 rppd)
+├── level_shifter_up ×3             (+ 4 HV, 2 LV MOSFETs, inv_1)
+├── divider_16 ×1                   (+ inv_1 ×2)
+│   └── dff_c2mos ×4                (+ 8 LV MOSFETs, inv_1 ×6)
+│       └── INVLVW ×2               (leaf)
+├── delay_2ns ×2                    (+ 4 MOS capacitors, inv_1 ×4)
+├── MUXLV ×1                        (+ 4 LV MOSFETs, inv_1)
+├── MUXHV ×1                        (4 HV MOSFETs)
+├── SCHMLV ×2                       (leaf)
+├── sg13cmos5l_inv_1 ×5, or2_1 ×2, and3_1 ×2, and2_1 ×2, nand2_1 ×4, nor2_1 ×1
+└── sg13g2_hv_inv_1, hv_inv_2, hv_nand2_2, hv_nor2_2
 ```
 
-## How often each cell appears in one channel
+The logic gates used to be custom cells (`INVLV`, `NANDLV`, ...). They are now
+the PDK's standard cells; `xschem/logic_gates/sg13cmos5l_*.sym/.sch` are local
+symbols for them, with the transistor sizes of the PDK netlist. `INVLVW`,
+`SCHMLV` and the two muxes have no library equivalent and stay custom.
 
-Counted through the whole tree. This shows where a good layout saves the
-most time.
+## Building the blocks
 
-| Cell | Copies per channel | Placed inside |
-|---|---:|---|
-| INVLV *(leaf)* | 49 | almost everything |
-| INVLVW *(leaf)* | 8 | dff_c2mos |
-| NANDLV *(leaf)* | 5 | bidir_channel, AND2LV |
-| dff_c2mos | 4 | divider_16 |
-| NORLV *(leaf)* | 3 | bidir_channel, OR2LV |
-| level_shifter_up | 3 | bidir_channel |
-| NAND3LV *(leaf)* | 2 | AND3LV |
-| AND2LV, AND3LV, OR2LV | 2 each | bidir_channel |
-| delay_2ns | 2 | bidir_channel |
-| SCHMLV *(leaf)* | 2 | bidir_channel |
-| divider_16, MUXLV | 1 each | bidir_channel |
-| NANDHV, MUXHV *(leaf)* | 1 each | bidir_channel |
+`INVLVW` and `SCHMLV` are drawn by hand. Everything above them is placed and
+routed by `build_blocks.py`: components in rows, a Metal2 stub from every pin
+up into a channel above its row, one Metal3 trunk per net, and Metal2 risers
+at the right for nets that span rows. A block's pins end as Metal2 stubs on
+its top edge. It is correct by construction and checked with DRC and LVS, but
+not compact, and all wires are minimum width, including supplies and the pad
+drivers' connections.
 
-## Suggested order
+Build children first:
 
-1. `INVLV`, then the other LV leaves (`INVLVW`, `NANDLV`, `NORLV`,
-   `NAND3LV`, `SCHMLV`). Use one cell height and the same power rails for
-   all of them so they butt together.
-2. The HV leaves (`NANDHV`, `MUXHV`).
-3. The small composites: `AND2LV`, `AND3LV`, `OR2LV`, `MUXLV`.
-4. The blocks: `dff_c2mos`, then `divider_16`, `delay_2ns` and
-   `level_shifter_up`.
-5. `bidir_channel`.
+```sh
+K=$PDK_ROOT/ihp-sg13cmos5l/libs.tech/klayout
+export PDK=ihp-sg13cmos5l KLAYOUT_PATH=$HOME/.klayout:$K:$K/tech
+for b in dff_c2mos divider_16 delay_2ns level_shifter_up muxlv muxhv bidir_channel; do
+  klayout -zz -r build_blocks.py -rd block=$b
+done
+```
+
+Run LVS on these in hierarchical mode (`--run_mode=deep`); in flat mode the
+standard cells' own pin labels show up as extra top-level ports. DRC on
+`bidir_channel` reports `Cnt.c.Digi` markers that come from the PDK's HV
+standard cells themselves.
 
 ## PDK standard cells in KLayout
 
