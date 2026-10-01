@@ -27,7 +27,7 @@ MMN4 net12 vddl net13 vss sg13_hv_nmos w=3.0u l=0.45u ng=1
 MMN1 net11 net9 vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
 MMN2 net13 a_nb vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
 MMN5 net12 enb_h vss vss sg13_hv_nmos w=0.5u l=0.45u ng=1
-XH1 net12 net14 vddh vss INVHV1S
+XH1 net14 net12 vddh vss sg13g2_hv_inv_1
 XH2 z_h net14 vddh vss sg13g2_hv_inv_2
 XD1 z_h en_b_h net15 vddh vss NANDHV
 XD2 net16 z_h enb_b_h vddh vss sg13g2_hv_nor2_2
@@ -158,13 +158,14 @@ MMN2 net1 b vss vss sg13_lv_nmos w=0.8u l=0.13u ng=1
 .ends
 
 
-* expanding   symbol:  logic_gates/INVHV1S.sym # of pins=4
-** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVHV1S.sym
-** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVHV1S.sch
-.subckt INVHV1S a y vdd vss
-*.PININFO vdd:B vss:B y:B a:B
-MMP y a vdd vdd sg13_hv_pmos w=2.0u l=0.45u ng=1
-MMN y a vss vss sg13_hv_nmos w=2.0u l=0.45u ng=1
+* expanding   symbol:  sg13g2_hv_inv_1.sym # of pins=2
+** sym_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sym/xschem/sg13g2_hv_inv_1.sym
+** sch_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sch/xschem/sg13g2_hv_inv_1.sch
+.subckt sg13g2_hv_inv_1 Y A VDD VSS
+
+*.PININFO Y:O A:I
+MM1 Y A VSS VSS sg13_hv_nmos w=0.740u l=0.450u ng=1
+MM2 Y A VDD VDD sg13_hv_pmos w=2.690u l=0.450u ng=1
 .ends
 
 

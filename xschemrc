@@ -68,8 +68,8 @@ if { [info exists env(PDK_ROOT)] } {
 set project_xschem_dir [file join [file dirname [file normalize [info script]]] xschem]
 
 # Project cell library: xschem/logic_gates (INVLV, NANDHV, SCHMLV, ...) and
-# xschem/schematics (bidir_channel, level_shifter_up, dff_c2mos, ... plus
-# tb_bidir_channel).  Instances reference them as <folder>/<cell>.sym.
+# xschem/schematics (bidir_channel, level_shifter_up, dff_c2mos, ...).
+# Instances reference them as <folder>/<cell>.sym.
 append XSCHEM_LIBRARY_PATH :$project_xschem_dir
 
 # Device symbols (sg13cmos5l_pr/sg13_{lv,hv}_{n,p}mos.sym) come from the PDK's

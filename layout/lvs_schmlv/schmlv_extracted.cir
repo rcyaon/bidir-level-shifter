@@ -1,0 +1,12 @@
+* Extracted by KLayout with SG13CMOS5L LVS runset on : 01/10/2026 07:20
+
+.SUBCKT schmlv a vdd|vss|y
+M$1 vdd|vss|y a \$5 vdd|vss|y sg13_lv_nmos L=0.13u W=2u AS=0.68p AD=0.68p
++ PS=5.36u PD=5.36u rfmode=0
+M$3 \$8 vdd|vss|y \$9 vdd|vss|y sg13_lv_nmos L=0.13u W=0.6u AS=0.204p AD=0.204p
++ PS=1.88u PD=1.88u rfmode=0
+M$4 \$16 vdd|vss|y \$17 vdd|vss|y sg13_lv_pmos L=0.13u W=1.2u AS=0.408p
++ AD=0.408p PS=3.08u PD=3.08u rfmode=0
+M$5 \$15 a vdd|vss|y vdd|vss|y sg13_lv_pmos L=0.13u W=4u AS=1.36p AD=1.36p
++ PS=9.36u PD=9.36u rfmode=0
+.ENDS schmlv

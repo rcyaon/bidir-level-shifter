@@ -174,8 +174,8 @@ N 1880 1180 1910 1180 {}
 N 1910 1180 1910 1300 {}
 N 1820 1180 1840 1180 {}
 N 1620 1000 1880 1000 {}
-N 1880 1000 1990 1000 {}
-N 2130 1000 2260 1000 {}
+N 1880 1000 2020 1000 {}
+N 2100 1000 2260 1000 {}
 N 2340 1000 2400 1000 {}
 N 2400 1000 2430 1000 {}
 N 2400 980 2400 1000 {}
@@ -197,8 +197,6 @@ N 2810 1220 2810 1300 {}
 N 2780 990 2780 1090 {}
 N 2780 1090 2780 1190 {}
 N 2780 1090 2940 1090 {}
-N 2060 880 2060 950 {}
-N 2060 1050 2060 1300 {}
 N -600 880 1350 880 {}
 N 1350 880 1380 880 {}
 N 1380 880 1620 880 {}
@@ -389,7 +387,7 @@ C {devices/lab_pin.sym} 1680 1060 0 1 {name=l39 sig_type=std_logic lab=vddl}
 C {devices/lab_pin.sym} 1680 1180 0 1 {name=l40 sig_type=std_logic lab=a_nb}
 C {sg13cmos5l_pr/sg13_hv_nmos.sym} 1860 1180 0 0 {name=MN5 model=sg13_hv_nmos w=0.5u l=0.45u ng=1 m=1 spiceprefix=X}
 C {devices/lab_pin.sym} 1820 1180 0 0 {name=l41 sig_type=std_logic lab=enb_h}
-C {logic_gates/INVHV1S.sym} 2060 1000 0 0 {name=XH1}
+C {sg13g2_hv_inv_1.sym} 2060 1000 0 0 {name=XH1 VDD=vddh VSS=vss prefix=sg13g2_hv_ }
 C {sg13g2_hv_inv_2.sym} 2300 1000 0 0 {name=XH2 VDD=vddh VSS=vss prefix=sg13g2_hv_ }
 C {logic_gates/NANDHV.sym} 2600 960 0 0 {name=XD1}
 C {sg13g2_hv_nor2_2.sym} 2600 1220 0 0 {name=XD2 VDD=vddh VSS=vss prefix=sg13g2_hv_ }

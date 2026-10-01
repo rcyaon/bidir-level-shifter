@@ -40,7 +40,7 @@ bidir_channel                       one channel (+ 11 HV, 4 LV MOSFETs, 1 resist
 ├── NANDLV ×3
 ├── NORLV ×1
 ├── SCHMLV ×2
-├── INVHV1S ×1
+├── sg13g2_hv_inv_1 ×1            (PDK cell)
 ├── sg13g2_hv_inv_2 ×1            (PDK cell)
 ├── NANDHV ×1
 ├── sg13g2_hv_nor2_2 ×1           (PDK cell)
@@ -65,14 +65,14 @@ most time.
 | delay_2ns | 2 | bidir_channel |
 | SCHMLV *(leaf)* | 2 | bidir_channel |
 | divider_16, MUXLV | 1 each | bidir_channel |
-| INVHV1S, NANDHV, MUXHV *(leaf)* | 1 each | bidir_channel |
+| NANDHV, MUXHV *(leaf)* | 1 each | bidir_channel |
 
 ## Suggested order
 
 1. `INVLV`, then the other LV leaves (`INVLVW`, `NANDLV`, `NORLV`,
    `NAND3LV`, `SCHMLV`). Use one cell height and the same power rails for
    all of them so they butt together.
-2. The HV leaves (`INVHV1S`, `NANDHV`, `MUXHV`).
+2. The HV leaves (`NANDHV`, `MUXHV`).
 3. The small composites: `AND2LV`, `AND3LV`, `OR2LV`, `MUXLV`.
 4. The blocks: `dff_c2mos`, then `divider_16`, `delay_2ns` and
    `level_shifter_up`.
