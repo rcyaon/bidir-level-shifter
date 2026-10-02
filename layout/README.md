@@ -58,6 +58,36 @@ standard cells' own pin labels show up as extra top-level ports. DRC on
 `bidir_channel` reports `Cnt.c.Digi` markers that come from the PDK's HV
 standard cells themselves.
 
+## Slot top level
+
+`sg13cmos5l_bidir_level_shifter` is the tapeout macro: four channels inside
+the Chipalooza `small` analog slot (500 um x 200 um). It starts from
+`floorplan/chipalooza_template_small_analog.gds`, taken unchanged from
+<https://github.com/RFICExplorer/sg13cmos5l_chipalooza_analog_project>, and
+keeps its Metal3 signal pins (west edge), Metal2 analog pins (south edge),
+Metal4 power straps and PR boundary as drawn.
+
+| Template pin | Connected to |
+|---|---|
+| `VPWR`, `VAPWR`, `VGND` | `vddl` (1.2 V), `vddh` (3.3 V), `vss` of all channels |
+| `analog_0`, `analog_1` | channel 0 `a_pad`, `b_pad` |
+| `ui_in[3:0]` | `dir` of channels 0-3 |
+| `ui_in[4]`, `ui_in[5]`, `ui_in[6]` | `oe_n`, `en`, `tm` (shared) |
+| `uo_out[3:0]` | `ring_div` of channels 0-3 |
+
+The pads of channels 1-3 are not brought out: a 3.3 V pad can't go to the
+1.2 V digital pins, and the slot has three analog pins. Those channels are
+reached through test mode only. The mapping is the `CHANNELS` and `SHARED`
+tables in `build_blocks.py`; the schematic is
+`xschem/schematics/sg13cmos5l_bidir_level_shifter.sch`.
+
+```sh
+klayout -zz -r build_blocks.py -rd block=slot_top
+```
+
+DRC reports 12 `metal4_drw_Offgrid` markers on the template's own second
+strap group, which the bare template has too.
+
 ## PDK standard cells in KLayout
 
 The PDK registers only the 3.3 V cells (`sg13cmos5l_stdcell_hv`) as a

@@ -760,8 +760,126 @@ def bidir_channel():
     b.route()
 
 
+# ---------------------------------------------------------------- slot top --
+
+TOP = "sg13cmos5l_bidir_level_shifter"
+TEMPLATE = os.path.join(HERE, "floorplan", "chipalooza_template_small_analog.gds")
+# Which template pin each channel pin goes to. Channel 0 is the one on pads.
+CHANNELS = [
+    # (x of the channel's left edge, {channel pin: template pin or None})
+    (413.47, dict(a_pad="analog_0", b_pad="analog_1", dir="ui_in[0]", ring_div="uo_out[0]")),
+    (122.0, dict(a_pad=None, b_pad=None, dir="ui_in[1]", ring_div="uo_out[1]")),
+    (207.0, dict(a_pad=None, b_pad=None, dir="ui_in[2]", ring_div="uo_out[2]")),
+    (292.0, dict(a_pad=None, b_pad=None, dir="ui_in[3]", ring_div="uo_out[3]")),
+]
+SHARED = dict(oe_n="ui_in[4]", en="ui_in[5]", tm="ui_in[6]", vddl="VPWR", vddh="VAPWR", vss="VGND")
+
+
+def slot_top():
+    """Four channels inside the Chipalooza `small` analog slot.
+
+    The template's shapes are kept as they are: Metal3 signal pins on the
+    west edge, Metal2 analog pins on the south edge, Metal4 power straps from
+    bottom to top, and the PR boundary. The channels sit clear of the straps
+    and of the west edge, upside down, so their pins face a routing channel
+    along the south edge:
+      - signals: Metal3 trunks to a Metal2 column next to the west edge, and
+        from there to their pin,
+      - supplies: 1 um Metal3 trunks under the straps, joined to them by Via3,
+      - channel 0's pads: Metal2 straight down to the analog pins.
+    """
+    ci = gds_cell("bidir_channel")
+    chan = layout.cell(ci)
+    height = chan.dbbox().height()
+    pin_x = {s.text.string[4:]: s.text.x * layout.dbu
+             for s in chan.shapes(LY["text"]).each() if s.is_text() and s.text.string.startswith("pin:")}
+
+    tpl = pya.Layout()
+    tpl.read(TEMPLATE)
+    src = tpl.top_cell()
+    top = layout.create_cell(TOP)
+    pins, straps, labels = {}, {}, []
+    for li in tpl.layer_indexes():
+        info = tpl.get_info(li)
+        dst = layout.layer(info.layer, info.datatype)
+        for sh in src.shapes(li).each():
+            top.shapes(dst).insert(sh)
+            if sh.is_text():
+                pins[sh.text.string] = (sh.text.x * tpl.dbu, sh.text.y * tpl.dbu)
+                labels.append((sh.text.string, pya.DPoint(sh.text.x * tpl.dbu, sh.text.y * tpl.dbu)))
+    for li in tpl.layer_indexes():
+        if (tpl.get_info(li).layer, tpl.get_info(li).datatype) == (50, 0):
+            for sh in src.shapes(li).each():
+                b = sh.dbbox()
+                name = [n for n, pt in labels if b.contains(pt)][0]
+                straps.setdefault(name, []).append(b)
+
+    def rect(layer, x1, y1, x2, y2):
+        top.shapes(LY[layer]).insert(pya.DBox(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)))
+
+    def via(layer, x, y):
+        rect(layer, x - 0.095, y - 0.095, x + 0.095, y + 0.095)
+
+    YC = 16.0                                 # the channels' pin edge
+    stubs = {}                                # template pin -> [stub x]
+    for i, (x0, nets) in enumerate(CHANNELS):
+        top.insert(pya.DCellInstArray(ci, pya.DTrans(pya.DTrans.M0, x0, YC + height)))
+        top.shapes(LY["text"]).insert(pya.DText(f"XCH{i}", x0, YC + height + 0.3))
+        for pin, target in dict(SHARED, **nets).items():
+            if target:
+                stubs.setdefault(target, []).append(r5(x0 + pin_x[pin]))
+
+    # supplies: wide Metal3 trunks that pass under both strap groups
+    for k, net in enumerate(("VPWR", "VGND", "VAPWR")):
+        ty = 10.6 + 1.6 * k
+        xs = stubs.pop(net) + [b.left for b in straps[net]] + [b.right for b in straps[net]]
+        rect("m3", min(xs) - 0.3, ty - 0.5, max(xs) + 0.3, ty + 0.5)
+        for x in [x for x in xs if not any(b.left <= x <= b.right for b in straps[net])]:
+            rect("m2", x - 0.10, ty - 0.40, x + 0.10, YC + 0.3)
+            for dy in (-0.25, 0.25):
+                via("v2", x, ty + dy)
+        for b in straps[net]:
+            x = r5(b.left + 0.4)          # the template's second strap group is off grid
+            while x <= b.right - 0.4 + 1e-6:
+                for dy in (-0.25, 0.25):
+                    via("v3", x, ty + dy)
+                x = r5(x + 0.5)
+
+    # channel 0's pads: Metal2 down to the analog pins on the south edge
+    for level, net in enumerate(("analog_0", "analog_1")):
+        (x,), (px, py) = stubs.pop(net), pins[net]
+        jog = 2.0 + 1.5 * level
+        if abs(x - px) < 0.4:
+            rect("m2", x - 0.10, 0.5, x + 0.10, YC + 0.3)
+        else:
+            rect("m2", x - 0.10, jog - 0.5, x + 0.10, YC + 0.3)
+            rect("m2", min(x, px) - 0.5, jog - 0.5, max(x, px) + 0.5, jog + 0.5)
+            rect("m2", px - 0.5, 0.0, px + 0.5, jog + 0.5)
+
+    # signals: one Metal3 trunk each, a Metal2 column by the west edge, and a
+    # short Metal3 stub from the column to the pin
+    for k, net in enumerate(sorted(stubs, key=lambda n: -pins[n][1])):
+        ty, col = r5(5.0 + TRACK * k), r5(1.5 + PITCH * k)
+        px, py = pins[net]
+        rect("m3", col - 0.145, ty - 0.10, max(stubs[net]) + 0.145, ty + 0.10)
+        for x in stubs[net]:
+            rect("m2", x - 0.10, ty - 0.145, x + 0.10, YC + 0.3)
+            via("v2", x, ty)
+        via("v2", col, ty)
+        rect("m2", col - 0.10, min(ty, py) - 0.145, col + 0.10, max(ty, py) + 0.145)
+        via("v2", col, py)
+        rect("m3", px - 0.2, py - 0.10, col + 0.145, py + 0.10)
+
+    merge_duplicate_proxies()
+    out = os.path.join(HERE, TOP + ".gds")
+    layout.write(out)
+    box = top.dbbox()
+    print(f"build_blocks: wrote {out}: {box.width():.1f} x {box.height():.1f} um, "
+          f"{len(CHANNELS)} channels")
+
+
 BLOCKS = {f.__name__: f for f in (dff_c2mos, level_shifter_up, divider_16, delay_2ns, muxlv, muxhv,
-                                  bidir_channel)}
+                                  bidir_channel, slot_top)}
 name = globals().get("block")
 if name not in BLOCKS:
     fail("usage: klayout -zz -r build_blocks.py -rd block=<" + "|".join(BLOCKS) + ">")

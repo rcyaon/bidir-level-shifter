@@ -1,0 +1,312 @@
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/sg13cmos5l_bidir_level_shifter.sch
+.subckt sg13cmos5l_bidir_level_shifter VPWR VAPWR VGND rst_n clk ena uio_in[7] uio_in[6] uio_in[5] uio_in[4] uio_in[3] uio_in[2]
++ uio_in[1] uio_in[0] ui_in[7] ui_in[6] ui_in[5] ui_in[4] ui_in[3] ui_in[2] ui_in[1] ui_in[0] uio_oe[7] uio_oe[6] uio_oe[5] uio_oe[4]
++ uio_oe[3] uio_oe[2] uio_oe[1] uio_oe[0] uio_out[7] uio_out[6] uio_out[5] uio_out[4] uio_out[3] uio_out[2] uio_out[1] uio_out[0] uo_out[7]
++ uo_out[6] uo_out[5] uo_out[4] uo_out[3] uo_out[2] uo_out[1] uo_out[0] analog_2 analog_1 analog_0
+*.PININFO VPWR:B VAPWR:B VGND:B rst_n:B clk:B ena:B uio_in[7]:B uio_in[6]:B uio_in[5]:B uio_in[4]:B uio_in[3]:B uio_in[2]:B
+*+ uio_in[1]:B uio_in[0]:B ui_in[7]:B ui_in[6]:B ui_in[5]:B ui_in[4]:B ui_in[3]:B ui_in[2]:B ui_in[1]:B ui_in[0]:B uio_oe[7]:B uio_oe[6]:B
+*+ uio_oe[5]:B uio_oe[4]:B uio_oe[3]:B uio_oe[2]:B uio_oe[1]:B uio_oe[0]:B uio_out[7]:B uio_out[6]:B uio_out[5]:B uio_out[4]:B uio_out[3]:B
+*+ uio_out[2]:B uio_out[1]:B uio_out[0]:B uo_out[7]:B uo_out[6]:B uo_out[5]:B uo_out[4]:B uo_out[3]:B uo_out[2]:B uo_out[1]:B uo_out[0]:B
+*+ analog_2:B analog_1:B analog_0:B
+XCH0 analog_0 analog_1 ui_in[0] ui_in[4] ui_in[5] ui_in[6] uo_out[0] VPWR VAPWR VGND bidir_channel
+XCH1 a1 b1 ui_in[1] ui_in[4] ui_in[5] ui_in[6] uo_out[1] VPWR VAPWR VGND bidir_channel
+XCH2 a2 b2 ui_in[2] ui_in[4] ui_in[5] ui_in[6] uo_out[2] VPWR VAPWR VGND bidir_channel
+XCH3 a3 b3 ui_in[3] ui_in[4] ui_in[5] ui_in[6] uo_out[3] VPWR VAPWR VGND bidir_channel
+.ends
+
+* expanding   symbol:  schematics/bidir_channel.sym # of pins=10
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/bidir_channel.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/bidir_channel.sch
+.subckt bidir_channel a_pad b_pad dir oe_n en tm ring_div vddl vddh vss
+*.PININFO dir:B vddl:B vss:B oe_n:B en:B tm:B a_pad:B b_pad:B vddh:B ring_div:B
+XU1 net1 dir vddl vss sg13cmos5l_inv_1
+XO1 net2 net1 tm vddl vss sg13cmos5l_or2_1
+XU3 eur net2 oe en vddl vss sg13cmos5l_and3_1
+XU4 eur net3 vddl vss delay_2ns
+XU5 en_up eur net3 vddl vss sg13cmos5l_and2_1
+XU2 oe oe_n vddl vss sg13cmos5l_inv_1
+XO2 net4 dir tm vddl vss sg13cmos5l_or2_1
+XU6 ear net4 oe en vddl vss sg13cmos5l_and3_1
+XU7 ear net5 vddl vss delay_2ns
+XU8 en_a ear net5 vddl vss sg13cmos5l_and2_1
+XU9 en_ab en_a vddl vss sg13cmos5l_inv_1
+XL2 en en_h enb_h vddl vddh vss level_shifter_up
+XL3 tm tm_h tmb_h vddl vddh vss level_shifter_up
+XL1 en_up en_b_h enb_b_h vddl vddh vss level_shifter_up
+XRX a_pad net6 vddl vss SCHMLV
+XRB net7 net6 vddl vss sg13cmos5l_inv_1
+XM1 net7 z_l tm net8 vddl vss MUXLV
+XG1 a_nb net8 en_up vddl vss sg13cmos5l_nand2_1
+XG2 net9 a_nb vddl vss sg13cmos5l_inv_1
+MMP1 net10 net12 vddh vddh sg13_hv_pmos w=0.8u l=0.8u ng=1
+MMP2 net12 net10 vddh vddh sg13_hv_pmos w=0.8u l=0.8u ng=1
+MMN3 net10 vddl net11 vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+MMN4 net12 vddl net13 vss sg13_hv_nmos w=3.0u l=0.45u ng=1
+MMN1 net11 net9 vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
+MMN2 net13 a_nb vss vss sg13_lv_nmos w=2.0u l=0.13u ng=1
+MMN5 net12 enb_h vss vss sg13_hv_nmos w=0.5u l=0.45u ng=1
+XH1 net14 net12 vddh vss sg13g2_hv_inv_1
+XH2 z_h net14 vddh vss sg13g2_hv_inv_2
+XD1 net15 z_h en_b_h vddh vss sg13g2_hv_nand2_2
+XD2 net16 z_h enb_b_h vddh vss sg13g2_hv_nor2_2
+MMPD b_pad net15 vddh vddh sg13_hv_pmos w=12u l=0.45u ng=1 m=8
+MMND b_pad net16 vss vss sg13_hv_nmos w=12u l=0.45u ng=1 m=4
+RRSER b_pad net17 199.2 $SUB=vss $[rppd] w=1.0e-6 l=0.5e-6 b=0
+MMP6 net18 net17 vddh vddh sg13_hv_pmos w=1.5u l=0.45u ng=1
+MMN7 net18 net17 vss vss sg13_hv_nmos w=1.0u l=0.45u ng=1
+XM2 net18 z_h tm_h tmb_h net19 vddh vss MUXHV
+MMP8 net20 net19 vddl vddl sg13_hv_pmos w=1.0u l=0.45u ng=1
+MMN9 net20 net19 vss vss sg13_hv_nmos w=0.8u l=0.45u ng=1
+XS2 net20 net21 vddl vss SCHMLV
+XPK z_l net21 en_a vddl vss sg13cmos5l_nand2_1
+XA1 net22 z_l en_a vddl vss sg13cmos5l_nand2_1
+XA2 net23 z_l en_ab vddl vss sg13cmos5l_nor2_1
+MMPA a_pad net22 vddl vddl sg13_lv_pmos w=24u l=0.13u ng=1
+MMNA a_pad net23 vss vss sg13_lv_nmos w=12u l=0.13u ng=1
+XDV z_l ring_div vddl vss divider_16
+.ends
+
+
+* expanding   symbol:  logic_gates/sg13cmos5l_inv_1.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_inv_1.sch
+.subckt sg13cmos5l_inv_1 Y A VDD VSS
+*.PININFO Y:B A:B VDD:B VSS:B
+MMN0 Y A VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMP0 Y A VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/sg13cmos5l_or2_1.sym # of pins=5
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_or2_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_or2_1.sch
+.subckt sg13cmos5l_or2_1 X A B VDD VSS
+*.PININFO X:B A:B B:B VDD:B VSS:B
+MMP1 net2 B net3 VDD sg13_lv_pmos w=0.84u l=0.13u ng=1
+MMP0 net3 A VDD VDD sg13_lv_pmos w=0.84u l=0.13u ng=1
+MMP2 X net2 VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+MMN1 net2 A VSS VSS sg13_lv_nmos w=0.55u l=0.13u ng=1
+MMN0 net2 B VSS VSS sg13_lv_nmos w=0.55u l=0.13u ng=1
+MMN2 X net2 VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/sg13cmos5l_and3_1.sym # of pins=6
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_and3_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_and3_1.sch
+.subckt sg13cmos5l_and3_1 X A B C VDD VSS
+*.PININFO X:B A:B B:B C:B VDD:B VSS:B
+MMN2 net3 C VSS VSS sg13_lv_nmos w=0.64u l=0.13u ng=1
+MMN3 X net2 VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMN0 net2 A net1 VSS sg13_lv_nmos w=0.64u l=0.13u ng=1
+MMN1 net1 B net3 VSS sg13_lv_nmos w=0.64u l=0.13u ng=1
+MMP3 X net2 VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+MMP1 net2 B VDD VDD sg13_lv_pmos w=0.84u l=0.13u ng=1
+MMP2 net2 A VDD VDD sg13_lv_pmos w=0.84u l=0.13u ng=1
+MMP0 net2 C VDD VDD sg13_lv_pmos w=0.84u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  schematics/delay_2ns.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/delay_2ns.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/delay_2ns.sch
+.subckt delay_2ns a y vdd vss
+*.PININFO a:B y:B vdd:B vss:B
+X1 net1 a vdd vss sg13cmos5l_inv_1
+MMC1 vss net1 vss vss sg13_lv_nmos w=7.4u l=6u ng=1
+X2 net2 net1 vdd vss sg13cmos5l_inv_1
+MMC2 vss net2 vss vss sg13_lv_nmos w=7.4u l=6u ng=1
+X3 net3 net2 vdd vss sg13cmos5l_inv_1
+MMC3 vss net3 vss vss sg13_lv_nmos w=7.4u l=6u ng=1
+X4 y net3 vdd vss sg13cmos5l_inv_1
+MMC4 vss y vss vss sg13_lv_nmos w=3.2u l=6u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/sg13cmos5l_and2_1.sym # of pins=5
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_and2_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_and2_1.sch
+.subckt sg13cmos5l_and2_1 X A B VDD VSS
+*.PININFO X:B A:B B:B VDD:B VSS:B
+MMN0 net4 A net2 VSS sg13_lv_nmos w=0.64u l=0.13u ng=1
+MMN2 X net4 VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMN1 net2 B VSS VSS sg13_lv_nmos w=0.64u l=0.13u ng=1
+MMP0 net4 B VDD VDD sg13_lv_pmos w=0.84u l=0.13u ng=1
+MMP2 X net4 VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+MMP1 net4 A VDD VDD sg13_lv_pmos w=0.84u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  schematics/level_shifter_up.sym # of pins=6
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/level_shifter_up.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/level_shifter_up.sch
+.subckt level_shifter_up in q_h qb_h vddl vddh vss
+*.PININFO vddh:B vss:B qb_h:B q_h:B vddl:B in:B
+MMP1 qb_h q_h vddh vddh sg13_hv_pmos w=0.5u l=1.6u ng=1
+MMP2 q_h qb_h vddh vddh sg13_hv_pmos w=0.5u l=1.6u ng=1
+MMC1 qb_h vddl net1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMC2 q_h vddl net2 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMN1 net1 in vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMN2 net2 net3 vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+XI net3 in vddl vss sg13cmos5l_inv_1
+.ends
+
+
+* expanding   symbol:  logic_gates/SCHMLV.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/SCHMLV.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/SCHMLV.sch
+.subckt SCHMLV a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP1 net1 a vdd vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMP2 y a net1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMN2 y a net2 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMN1 net2 a vss vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMPF vss y net1 vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+MMNF vdd y net2 vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/MUXLV.sym # of pins=6
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/MUXLV.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/MUXLV.sch
+.subckt MUXLV in0 in1 sel out vdd vss
+*.PININFO out:B in0:B in1:B sel:B vdd:B vss:B
+MMT0N out net1 in0 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMT0P out sel in0 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+MMT1N out sel in1 vss sg13_lv_nmos w=1.0u l=0.13u ng=1
+MMT1P out net1 in1 vdd sg13_lv_pmos w=2.0u l=0.13u ng=1
+XI net1 sel vdd vss sg13cmos5l_inv_1
+.ends
+
+
+* expanding   symbol:  logic_gates/sg13cmos5l_nand2_1.sym # of pins=5
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_nand2_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_nand2_1.sch
+.subckt sg13cmos5l_nand2_1 Y A B VDD VSS
+*.PININFO Y:B A:B B:B VDD:B VSS:B
+MMP1 Y B VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+MMP0 Y A VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+MMN1 net1 B VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMN0 Y A net1 VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  sg13g2_hv_inv_1.sym # of pins=2
+** sym_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sym/xschem/sg13g2_hv_inv_1.sym
+** sch_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sch/xschem/sg13g2_hv_inv_1.sch
+.subckt sg13g2_hv_inv_1 Y A VDD VSS
+
+*.PININFO Y:O A:I
+MM1 Y A VSS VSS sg13_hv_nmos w=0.740u l=0.450u ng=1
+MM2 Y A VDD VDD sg13_hv_pmos w=2.690u l=0.450u ng=1
+.ends
+
+
+* expanding   symbol:  sg13g2_hv_inv_2.sym # of pins=2
+** sym_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sym/xschem/sg13g2_hv_inv_2.sym
+** sch_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sch/xschem/sg13g2_hv_inv_2.sch
+.subckt sg13g2_hv_inv_2 Y A VDD VSS
+
+*.PININFO Y:O A:I
+MM1 Y A VSS VSS sg13_hv_nmos w=1.480u l=0.450u ng=2
+MM2 Y A VDD VDD sg13_hv_pmos w=5.380u l=0.450u ng=2
+.ends
+
+
+* expanding   symbol:  sg13g2_hv_nand2_2.sym # of pins=3
+** sym_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sym/xschem/sg13g2_hv_nand2_2.sym
+** sch_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sch/xschem/sg13g2_hv_nand2_2.sch
+.subckt sg13g2_hv_nand2_2 Y A B VDD VSS
+
+*.PININFO Y:O B:I A:I
+MM1 Y A net1 VSS sg13_hv_nmos w=1.440u l=0.450u ng=2
+MM2 net1 B VSS VSS sg13_hv_nmos w=1.440u l=0.450u ng=2
+MM3 Y A VDD VDD sg13_hv_pmos w=5.380u l=0.450u ng=2
+MM4 Y B VDD VDD sg13_hv_pmos w=5.380u l=0.450u ng=2
+.ends
+
+
+* expanding   symbol:  sg13g2_hv_nor2_2.sym # of pins=3
+** sym_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sym/xschem/sg13g2_hv_nor2_2.sym
+** sch_path: /foss/pdks/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell_hv/sch/xschem/sg13g2_hv_nor2_2.sch
+.subckt sg13g2_hv_nor2_2 Y A B VDD VSS
+
+*.PININFO Y:O B:I A:I
+MM1 Y A VSS VSS sg13_hv_nmos w=1.480u l=0.450u ng=2
+MM2 Y B VSS VSS sg13_hv_nmos w=1.480u l=0.450u ng=2
+MM3 net1 A VDD VDD sg13_hv_pmos w=5.380u l=0.450u ng=2
+MM4 Y B net1 VDD sg13_hv_pmos w=5.380u l=0.450u ng=2
+.ends
+
+
+* expanding   symbol:  logic_gates/MUXHV.sym # of pins=7
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/MUXHV.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/MUXHV.sch
+.subckt MUXHV in0 in1 sel selb out vdd vss
+*.PININFO out:B in0:B in1:B sel:B selb:B vdd:B vss:B
+MMT0N out selb in0 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMT0P out sel in0 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+MMT1N out sel in1 vss sg13_hv_nmos w=1.5u l=0.45u ng=1
+MMT1P out selb in1 vdd sg13_hv_pmos w=3.0u l=0.45u ng=1
+.ends
+
+
+* expanding   symbol:  logic_gates/sg13cmos5l_nor2_1.sym # of pins=5
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_nor2_1.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/sg13cmos5l_nor2_1.sch
+.subckt sg13cmos5l_nor2_1 Y A B VDD VSS
+*.PININFO Y:B A:B B:B VDD:B VSS:B
+MMN0 Y A VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMN1 Y B VSS VSS sg13_lv_nmos w=0.74u l=0.13u ng=1
+MMP0 net1 A VDD VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+MMP1 Y B net1 VDD sg13_lv_pmos w=1.12u l=0.13u ng=1
+.ends
+
+
+* expanding   symbol:  schematics/divider_16.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/divider_16.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/divider_16.sch
+.subckt divider_16 in out vdd vss
+*.PININFO in:B out:B vdd:B vss:B
+XB1 net1 in vdd vss sg13cmos5l_inv_1
+XB2 net2 net1 vdd vss sg13cmos5l_inv_1
+X1 net3 net2 net4 net3 vdd vss dff_c2mos
+X2 net5 net4 net6 net5 vdd vss dff_c2mos
+X3 net7 net6 net8 net7 vdd vss dff_c2mos
+X4 net9 net8 out net9 vdd vss dff_c2mos
+.ends
+
+
+* expanding   symbol:  schematics/dff_c2mos.sym # of pins=6
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/dff_c2mos.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/dff_c2mos.sch
+.subckt dff_c2mos d clk q qb vdd vss
+*.PININFO d:B q:B qb:B clk:B vdd:B vss:B
+MMT1N net1 clkb d vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+MMT1P net1 clki d vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+MMT3N net3 clki net2 vss sg13_lv_nmos w=0.6u l=0.13u ng=1
+MMT3P net3 clkb net2 vdd sg13_lv_pmos w=1.2u l=0.13u ng=1
+MMT2P net1 clkb net4 vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
+MMT2N net1 clki net4 vss sg13_lv_nmos w=0.3u l=0.13u ng=1
+MMT4P net3 clki net5 vdd sg13_lv_pmos w=0.6u l=0.13u ng=1
+MMT4N net3 clkb net5 vss sg13_lv_nmos w=0.3u l=0.13u ng=1
+XI1 net2 net1 vdd vss sg13cmos5l_inv_1
+XI3 net6 net3 vdd vss sg13cmos5l_inv_1
+XI5 qb net6 vdd vss sg13cmos5l_inv_1
+XI6 q qb vdd vss sg13cmos5l_inv_1
+XI2 net2 net4 vdd vss INVLVW
+XI4 net6 net5 vdd vss INVLVW
+XI0 clkb clk vdd vss sg13cmos5l_inv_1
+XI9 clki clkb vdd vss sg13cmos5l_inv_1
+.ends
+
+
+* expanding   symbol:  logic_gates/INVLVW.sym # of pins=4
+** sym_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVLVW.sym
+** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/logic_gates/INVLVW.sch
+.subckt INVLVW a y vdd vss
+*.PININFO vdd:B vss:B y:B a:B
+MMP y a vdd vdd sg13_lv_pmos w=0.3u l=0.3u ng=1
+MMN y a vss vss sg13_lv_nmos w=0.3u l=0.3u ng=1
+.ends
+
