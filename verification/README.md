@@ -70,7 +70,7 @@ here because 5 pF is a lot to swing at that speed, but the loop keeps going.
 
 ## Area estimate
 
-No layout yet, so these are rough numbers from the netlists
+Rough numbers from the netlists
 (`python3 verification/area.py xschem/simulation/tb_bidir_channel.spice`).
 
 | Block | LV FETs | HV FETs | Caps | Est. area |
