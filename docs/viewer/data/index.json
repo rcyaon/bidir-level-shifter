@@ -1,0 +1,156 @@
+{
+ "cells": [
+  {
+   "name": "bidir_channel",
+   "width": 81.02,
+   "height": 93.98,
+   "shapes": 11534
+  },
+  {
+   "name": "divider_16",
+   "width": 81.02,
+   "height": 21.72,
+   "shapes": 3063
+  },
+  {
+   "name": "dff_c2mos",
+   "width": 37.87,
+   "height": 7.99,
+   "shapes": 720
+  },
+  {
+   "name": "delay_2ns",
+   "width": 44.1,
+   "height": 10.86,
+   "shapes": 675
+  },
+  {
+   "name": "level_shifter_up",
+   "width": 29.06,
+   "height": 7.78,
+   "shapes": 524
+  },
+  {
+   "name": "muxhv",
+   "width": 19.26,
+   "height": 10.32,
+   "shapes": 479
+  },
+  {
+   "name": "nandhv",
+   "width": 8.92,
+   "height": 12.24,
+   "shapes": 360
+  },
+  {
+   "name": "muxlv",
+   "width": 11.09,
+   "height": 8.34,
+   "shapes": 228
+  },
+  {
+   "name": "schmlv",
+   "width": 6.14,
+   "height": 6.5,
+   "shapes": 164
+  },
+  {
+   "name": "invlvw",
+   "width": 2.86,
+   "height": 2.65,
+   "shapes": 48
+  }
+ ],
+ "layers": [
+  {
+   "id": "31/0",
+   "name": "NWell",
+   "color": "#268c6b",
+   "alpha": 0.25
+  },
+  {
+   "id": "40/0",
+   "name": "Substrate tie",
+   "color": "#bbbbbb",
+   "alpha": 0.08
+  },
+  {
+   "id": "44/0",
+   "name": "ThickGateOx",
+   "color": "#ffffcc",
+   "alpha": 0.07
+  },
+  {
+   "id": "1/0",
+   "name": "Activ",
+   "color": "#00ff00",
+   "alpha": 0.35
+  },
+  {
+   "id": "14/0",
+   "name": "pSD",
+   "color": "#ccb899",
+   "alpha": 0.15
+  },
+  {
+   "id": "28/0",
+   "name": "SalBlock",
+   "color": "#9900e6",
+   "alpha": 0.3
+  },
+  {
+   "id": "5/0",
+   "name": "GatPoly",
+   "color": "#bf4026",
+   "alpha": 0.7
+  },
+  {
+   "id": "6/0",
+   "name": "Cont",
+   "color": "#00ffff",
+   "alpha": 0.8
+  },
+  {
+   "id": "8/0",
+   "name": "Metal1",
+   "color": "#39bfff",
+   "alpha": 0.45
+  },
+  {
+   "id": "19/0",
+   "name": "Via1",
+   "color": "#ccccff",
+   "alpha": 0.9
+  },
+  {
+   "id": "10/0",
+   "name": "Metal2",
+   "color": "#ccccd9",
+   "alpha": 0.4
+  },
+  {
+   "id": "29/0",
+   "name": "Via2",
+   "color": "#ff3736",
+   "alpha": 0.9
+  },
+  {
+   "id": "30/0",
+   "name": "Metal3",
+   "color": "#d80000",
+   "alpha": 0.45
+  },
+  {
+   "id": "49/0",
+   "name": "Via3",
+   "color": "#9ba940",
+   "alpha": 0.9
+  },
+  {
+   "id": "50/0",
+   "name": "Metal4",
+   "color": "#93e837",
+   "alpha": 0.45
+  }
+ ]
+}

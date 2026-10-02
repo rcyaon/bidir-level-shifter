@@ -37,9 +37,9 @@ symbols for them, with the transistor sizes of the PDK netlist. `INVLVW`,
 
 `INVLVW` and `SCHMLV` are drawn by hand. Everything above them is placed and
 routed by `build_blocks.py`: components in rows, a Metal2 stub from every pin
-up into a channel above its row, one Metal3 trunk per net, and Metal2 risers
-at the right for nets that span rows. A block's pins end as Metal2 stubs on
-its top edge. It is correct by construction and checked with DRC and LVS, but
+up into a channel above its row, one Metal3 trunk per net and channel, and a
+Metal4 riser next to its pins for a net that spans rows. A block's pins end
+as Metal2 stubs on its top edge. It is correct by construction and checked with DRC and LVS, but
 not compact, and all wires are minimum width, including supplies and the pad
 drivers' connections.
 

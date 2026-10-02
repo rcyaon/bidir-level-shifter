@@ -7,9 +7,9 @@
 #     their contacts and tap,
 #   - every pin gets a vertical Metal2 stub up into the channel above its row,
 #   - every net gets a horizontal Metal3 trunk in each channel it has pins in,
-#   - nets that span rows, and the block's own pins, use Metal2 risers in a
-#     strip to the right of the rows. A block's pins end as Metal2 stubs on
-#     its top edge so the parent can pick them up the same way.
+#   - a net that spans rows gets one vertical Metal4 riser joining its
+#     trunks, placed as close to its pins as possible. A block's pins end as
+#     Metal2 stubs on its top edge so the parent can pick them up the same way.
 # The result is correct by construction and checked with DRC/LVS, but it is
 # not compact: nothing shares diffusion and the channels are not optimised.
 #
@@ -34,7 +34,8 @@ layout.technology_name = TECH
 LY = {n: layout.layer(*ld) for n, ld in dict(
     activ=(1, 0), poly=(5, 0), cont=(6, 0), m1=(8, 0), m1pin=(8, 2),
     m1txt=(8, 25), v1=(19, 0), m2=(10, 0), v2=(29, 0), m3=(30, 0),
-    m3pin=(30, 2), m3txt=(30, 25), nwell=(31, 0), text=(63, 0)).items()}
+    m3pin=(30, 2), m3txt=(30, 25), v3=(49, 0), m4=(50, 0), nwell=(31, 0),
+    text=(63, 0)).items()}
 
 
 def fail(msg):
@@ -109,7 +110,11 @@ def merge_duplicate_proxies():
 
 
 def boxes(ci, layer):
-    return [s.dbbox() for s in layout.cell(ci).shapes(LY[layer]).each()]
+    """Bounding boxes of a cell's own shapes on `layer` (PCells repeat some)."""
+    seen = {}
+    for s in layout.cell(ci).shapes(LY[layer]).each():
+        seen.setdefault(str(s.dbbox()), s.dbbox())
+    return list(seen.values())
 
 
 class Comp:
@@ -121,9 +126,12 @@ class Comp:
     jogged sideways on Metal2 to keep the stub pitch.
     """
 
-    def __init__(self, margin=0.7):
+    def __init__(self, well=None):
         self.shapes, self.insts, self.ports, self.vias = [], [], [], []
-        self.margin = margin
+        # Net of the component's n-well, None without one, "*" for several.
+        # Wells on different nets need 1.8 um between them (NW.b1).
+        self.well = well
+        self.has_m4 = False       # set for child blocks that hold Metal4 risers
         self.bbox = pya.DBox()
 
     def box(self, layer, x1, y1, x2, y2):
@@ -166,7 +174,7 @@ def stdcells(lib_name, cells):
     The rails are extended 0.5 um past both ends in Metal1; the VDD via sits
     on the left extension and the VSS via on the right one.
     """
-    c = Comp(margin=2.0 if lib_name == HV_LIB else 0.7)
+    c = Comp(well=cells[0][1]["VDD"])
     lib_ly = pya.Library.library_by_name(lib_name).layout()
     x, rails = 0.0, {}
     for name, nets in cells:
@@ -208,21 +216,22 @@ def stdcells(lib_name, cells):
     return c
 
 
-def leaf(name, ports):
+def leaf(name, ports, well):
     """A leaf cell from <name>.gds with hand-picked via points on its pins."""
-    c = Comp()
+    c = Comp(well=well)
     c.inst(gds_cell(name))
     for net, x, y in ports:
         c.port(net, x, y)
     return c
 
 
-def child(name, nets):
+def child(name, nets, well="*"):
     """A child block built by this script: pins are Metal2 on its top edge."""
-    c = Comp(margin=1.0)
+    c = Comp(well=well)
     ci = gds_cell(name)
     c.inst(ci)
     top = layout.cell(ci).dbbox().top
+    c.has_m4 = not pya.Region(layout.cell(ci).begin_shapes_rec(LY["m4"])).is_empty()
     for s in layout.cell(ci).shapes(LY["text"]).each():
         if s.is_text() and s.text.string.startswith("pin:"):
             pin = s.text.string[4:]
@@ -263,8 +272,8 @@ def lv_mos(model, w, l, d, g, s, bulk=None):
     A PMOS gets an ntap1 in its well, wired to `bulk`. An NMOS relies on the
     substrate ties of the standard cells and guard rings around it.
     """
-    c = Comp()
     name = "pmos" if "pmos" in model else "nmos"
+    c = Comp(well=bulk if name == "pmos" else None)
     ci = pcell(name, model=model, w=f"{w}u", l=f"{l}u", ng="1")
     c.inst(ci)
     t1, t2, poly, _ = mos_geom(ci)
@@ -300,7 +309,7 @@ def tgate(wn, wp, a, b, gn, gp, vdd):
     The NMOS gate is contacted below the device and brought out to the left;
     the PMOS gate is contacted above it. One ntap1 ties the well to `vdd`.
     """
-    c = Comp()
+    c = Comp(well=vdd)
     n = pcell("nmos", model="sg13_lv_nmos", w=f"{wn}u", l="0.13u", ng="1")
     p = pcell("pmos", model="sg13_lv_pmos", w=f"{wp}u", l="0.13u", ng="1")
     p0 = r5(wn + 0.70)
@@ -327,7 +336,7 @@ def tgate(wn, wp, a, b, gn, gp, vdd):
 
 def hv_mos(model, w, l, d, g, s, bulk):
     """One HV MOSFET in its PCell guard ring; the ring is the bulk tie."""
-    c = Comp(margin=2.0 if "pmos" in model else 0.7)
+    c = Comp(well=bulk if "pmos" in model else None)
     name, ring_type = ("pmosHV", "nwell") if "pmos" in model else ("nmosHV", "psub")
     ci = pcell(name, model=model, w=f"{w}u", l=f"{l}u", ng="1", guardRingType=ring_type)
     c.inst(ci)
@@ -337,6 +346,48 @@ def hv_mos(model, w, l, d, g, s, bulk):
         c.port(net, r5(term.center().x), y1, top=w - 0.145)
     gate_contact(c, poly.left, poly.right, poly.top, True, g)
     c.port(bulk, r5(ring.left + 0.15), r5(ring.top - 0.15))
+    return c
+
+
+def mos_fingers(model, w, l, ng, d, g, s, bulk=None):
+    """A multi-finger MOSFET (w is the total width): neighbouring fingers
+    share their source/drain, so it is far narrower than `ng` single devices.
+
+    Every source/drain strip is a port. HV gates are contacted one by one;
+    LV gates are too close together for that and are joined by a poly bar
+    with one contact at its left end.
+    """
+    hv, pm = "_hv_" in model, "pmos" in model
+    params = dict(model=model, w=f"{w}u", l=f"{l}u", ng=str(ng))
+    if hv:
+        params["guardRingType"] = "nwell" if pm else "psub"
+    ci = pcell(("pmos" if pm else "nmos") + ("HV" if hv else ""), **params)
+    c = Comp(well=bulk if pm else None)
+    c.inst(ci)
+    polys = sorted(boxes(ci, "poly"), key=lambda b: b.left)
+    m1 = boxes(ci, "m1")
+    terms = sorted([b for b in m1 if b.bottom > -0.01 and b.left > -0.01 and b.top <= polys[0].top],
+                   key=lambda b: b.left)
+    if len(terms) != ng + 1 or len(polys) != ng:
+        fail(f"{model} ng={ng}: unexpected PCell geometry")
+    wf = terms[0].height()
+    y1 = r5(min(0.145, wf / 2))
+    for i, t in enumerate(terms):
+        c.port(d if i % 2 else s, r5(t.center().x), y1, top=wf - 0.145)
+    if hv:
+        for poly in polys:
+            gate_contact(c, poly.left, poly.right, poly.top, True, g)
+        ring = None
+        for b in m1:
+            if b not in terms:
+                ring = b if ring is None else ring + b
+        c.port(bulk, r5(ring.left + 0.15), r5(ring.top - 0.15))
+    else:
+        x0 = r5(terms[0].left - 0.50)
+        c.box("poly", x0, wf + 0.15, polys[-1].right, wf + 0.31)
+        gate_contact(c, x0, x0 + 0.30, wf + 0.15, True, g)
+        if pm:
+            add_ntap(c, terms[-1].right + 0.30, 0.0, bulk)
     return c
 
 
@@ -361,128 +412,193 @@ class Block:
         for c in children:
             gds_cell(c)
         self.name, self.pins = name, pins
-        self.top = layout.create_cell(name)
-        self.rows = []            # [[(net, via_x, via_y, stub_x, kind)], ...] absolute
-        self.y = 0.0              # bottom of the row being filled
-        self.row_ports, self.row_top, self.x, self.prev_margin = [], 0.0, 0.0, 0.0
-        self.width = 0.0
-        self.channels = []        # [(y_bottom_of_channel, ports)]
+        self.top = None
+        self.rows = []
+        self.new_row()
 
-    def shape(self, layer, b):
-        self.top.shapes(LY[layer]).insert(b)
+    def new_row(self):
+        # comps: (comp, dx, dy, label); ports: (net, via_x, via_y, stub_x, kind),
+        # y relative to the row's bottom; blocked: x ranges a Metal4 riser must avoid
+        self.row = dict(comps=[], ports=[], vias=[], top=0.0, blocked=[])
+        self.x, self.prev = 0.0, None
 
-    def rect(self, layer, x1, y1, x2, y2):
-        self.shape(layer, pya.DBox(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)))
+    @staticmethod
+    def gap(a, b):
+        apart = a.well and b.well and (a.well != b.well or "*" in (a.well, b.well))
+        return 2.0 if apart else 0.7
+
+    def pack(self, items, width):
+        """Fill rows of about `width` with (comp, label) items, tallest first,
+        so that each row holds components of similar height."""
+        for comp, label in sorted(items, key=lambda it: -it[0].bbox.height()):
+            row = self.row
+            if row["comps"] and self.x + self.gap(self.prev, comp) + comp.bbox.width() > width:
+                self.end_row()
+            self.add(comp, label)
 
     def add(self, comp, label=None):
-        gap = max(comp.margin, self.prev_margin) if self.row_ports or self.x else 0.0
+        row = self.row
+        gap = self.gap(self.prev, comp) if row["comps"] else 0.0
         dx = r5(self.x + gap - comp.bbox.left)
-        dy = r5(self.y - comp.bbox.bottom)
-        taken = [p[3] for p in self.row_ports]
+        dy = r5(-comp.bbox.bottom)
+        taken = [p[3] for p in row["ports"]]
         while any(abs(dx + p[3] - t) < PITCH - 1e-6 for p in comp.ports for t in taken):
             dx = r5(dx + 0.005)
-        for ci, ix, iy in comp.insts:
-            self.top.insert(pya.DCellInstArray(ci, pya.DTrans(pya.DVector(dx + ix, dy + iy))))
-        for layer, b in comp.shapes:
-            self.shape(layer, b.moved(dx, dy))
+        row["comps"].append((comp, dx, dy, label))
         for net, vx, vy, sx, kind in comp.ports:
-            self.row_ports.append((net, r5(vx + dx), r5(vy + dy), r5(sx + dx), kind))
-        for vx, vy in comp.vias:
-            self.via1(r5(vx + dx), r5(vy + dy))
-        if label:
-            self.top.shapes(LY["text"]).insert(
-                pya.DText(label, comp.bbox.left + dx, comp.bbox.top + dy + 0.05))
+            row["ports"].append((net, r5(vx + dx), r5(vy + dy), r5(sx + dx), kind))
+        row["vias"] += [(r5(vx + dx), r5(vy + dy)) for vx, vy in comp.vias]
+        if comp.has_m4:
+            row["blocked"].append((comp.bbox.left + dx - 0.35, comp.bbox.right + dx + 0.35))
         self.x = comp.bbox.right + dx
-        self.prev_margin = comp.margin
-        self.row_top = max(self.row_top, comp.bbox.top + dy)
-        self.width = max(self.width, self.x)
+        self.prev = comp
+        row["top"] = max(row["top"], comp.bbox.height())
 
     def end_row(self):
-        """Close the current row; the next one starts above its channel."""
-        nets = sorted({p[0] for p in self.row_ports})
-        y0 = r5(self.row_top + 0.60)
-        self.channels.append((y0, self.row_ports))
-        self.y = r5(y0 + len(nets) * TRACK + 1.0)
-        self.row_ports, self.row_top, self.x, self.prev_margin = [], self.y, 0.0, 0.0
+        """Close the current row; the next one goes above its channel."""
+        if self.row["comps"]:
+            self.rows.append(self.row)
+        self.new_row()
 
-    def via1(self, x, y):
-        self.rect("v1", x - 0.095, y - 0.095, x + 0.095, y + 0.095)
-        self.rect("m1", x - 0.105, y - 0.145, x + 0.105, y + 0.145)
+    def rect(self, layer, x1, y1, x2, y2):
+        self.top.shapes(LY[layer]).insert(
+            pya.DBox(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)))
 
-    def via2(self, x, y):
-        self.rect("v2", x - 0.095, y - 0.095, x + 0.095, y + 0.095)
+    def via(self, layer, x, y):
+        self.rect(layer, x - 0.095, y - 0.095, x + 0.095, y + 0.095)
 
-    def route(self):
-        if self.row_ports:
-            self.end_row()
-        riser = {}                                  # net -> riser/export x
-        multi = {}
-        for _, ports in self.channels:
-            for net in {p[0] for p in ports}:
-                multi[net] = multi.get(net, 0) + 1
-        x_next = r5(self.width + 1.0)
-        for net in sorted(multi):
-            if multi[net] > 1 or net in self.pins:
-                riser[net] = x_next
-                x_next = r5(x_next + PITCH)
-        trunk_y = {}                                # net -> [y per channel]
-        for y0, ports in self.channels:
+    @staticmethod
+    def free_x(want, taken, blocked=(), lo=0.0):
+        """Nearest x to `want` that keeps the pitch to `taken` and avoids `blocked`."""
+        for k in range(0, 100000):
+            for x in (r5(want + k * 0.05), r5(want - k * 0.05)):
+                if x >= lo and all(abs(x - t) >= PITCH - 1e-6 for t in taken) and \
+                        not any(a <= x <= b for a, b in blocked):
+                    return x
+        fail("no free column")
+
+    def route(self, dry=False):
+        """Route and write the block. With `dry`, only return (width, height)."""
+        self.end_row()
+        rows, last = self.rows, len(self.rows) - 1
+        in_rows = {}                                # net -> rows it has pins in
+        for r, row in enumerate(rows):
+            for p in row["ports"]:
+                in_rows.setdefault(p[0], set()).add(r)
+        missing = [p for p in self.pins if p not in in_rows]
+        if missing:
+            fail(f"{self.name}: pins with no connection: {missing}")
+        for net in self.pins:                       # pins leave through the top channel
+            in_rows[net].add(last)
+
+        # Metal4 risers for nets in more than one row, as close to their pins
+        # as the columns already taken and any Metal4 in child blocks allow.
+        riser, taken = {}, []
+        for net in sorted(in_rows, key=lambda n: (-len(in_rows[n]), n)):
+            if len(in_rows[net]) < 2:
+                continue
+            xs = sorted(p[3] for row in rows for p in row["ports"] if p[0] == net)
+            crossed = range(min(in_rows[net]) + 1, max(in_rows[net]) + 1)
+            blocked = [b for r in crossed for b in rows[r]["blocked"]]
+            riser[net] = self.free_x(xs[len(xs) // 2], taken, blocked)
+            taken.append(riser[net])
+        # Metal2 stubs that take the block's pins from the top channel to its top edge
+        export, taken = {}, [p[3] for p in rows[last]["ports"]]
+        for net in self.pins:
+            xs = sorted(p[3] for p in rows[last]["ports"] if p[0] == net) or [riser[net]]
+            export[net] = self.free_x(xs[len(xs) // 2], taken)
+            taken.append(export[net])
+
+        # left-edge track assignment per channel, then the row positions
+        track = []                                  # per row: {net: (track, lo, hi)}
+        for r, row in enumerate(rows):
             spans = {}
-            for net, vx, vy, sx, kind in ports:
-                lo, hi = spans.get(net, (sx, sx))
-                spans[net] = (min(lo, sx), max(hi, sx))
-            for net in spans:
-                if net in riser:
-                    spans[net] = (min(spans[net][0], riser[net]), max(spans[net][1], riser[net]))
-            # left-edge track assignment
-            tracks = []
-            for net in sorted(spans, key=lambda n: spans[n][0]):
-                lo, hi = spans[net]
-                hi = max(hi, lo + 0.75 - 0.29)
-                for k, right in enumerate(tracks):
+            for net, vx, vy, sx, kind in row["ports"]:
+                spans.setdefault(net, []).append(sx)
+            for net in in_rows:
+                if r in in_rows[net]:
+                    if net in riser:
+                        spans.setdefault(net, []).append(riser[net])
+                    if r == last and net in export:
+                        spans.setdefault(net, []).append(export[net])
+            used, assigned = [], {}
+            for net in sorted(spans, key=lambda n: min(spans[n])):
+                lo, hi = min(spans[net]), max(spans[net])
+                hi = max(hi, lo + 0.75 - 0.29)      # minimum Metal3 area
+                for k, right in enumerate(used):
                     if lo - right >= 0.29 + 0.25:
                         break
                 else:
-                    tracks.append(None)
-                    k = len(tracks) - 1
-                tracks[k] = hi
-                ty = r5(y0 + k * TRACK)
-                trunk_y.setdefault(net, []).append(ty)
+                    used.append(None)
+                    k = len(used) - 1
+                used[k] = hi
+                assigned[net] = (k, lo, hi)
+            track.append(assigned)
+        y_row, y_chan, y = [], [], 0.0
+        for r, row in enumerate(rows):
+            y_row.append(y)
+            y_chan.append(r5(y + row["top"] + 0.60))
+            n = 1 + max(k for k, _, _ in track[r].values())
+            # 1.9 um at least, for wells on different nets in neighbouring rows
+            y = r5(max(y_chan[r] + (n - 1) * TRACK + 0.10 + 0.60, y_row[r] + row["top"] + 1.9))
+        block_top = r5(y + 0.20)
+        if dry:
+            right = max([c[0].bbox.right + c[1] for row in rows for c in row["comps"]] +
+                        list(riser.values()) + list(export.values()))
+            return right + 0.3, block_top
+        self.top = layout.create_cell(self.name)
+
+        for r, row in enumerate(rows):
+            y0 = y_row[r]
+            for comp, dx, dy, label in row["comps"]:
+                for ci, ix, iy in comp.insts:
+                    self.top.insert(pya.DCellInstArray(
+                        ci, pya.DTrans(pya.DVector(dx + ix, y0 + dy + iy))))
+                for layer, b in comp.shapes:
+                    self.top.shapes(LY[layer]).insert(b.moved(dx, y0 + dy))
+                if label:
+                    self.top.shapes(LY["text"]).insert(
+                        pya.DText(label, comp.bbox.left + dx, y0 + row["top"] + 0.05))
+            for vx, vy in row["vias"]:
+                self.via("v1", vx, y0 + vy)
+                self.rect("m1", vx - 0.105, y0 + vy - 0.145, vx + 0.105, y0 + vy + 0.145)
+            for net, (k, lo, hi) in track[r].items():
+                ty = r5(y_chan[r] + k * TRACK)
                 self.rect("m3", lo - 0.145, ty - 0.10, hi + 0.145, ty + 0.10)
-                for pnet, vx, vy, sx, kind in ports:
+                for pnet, vx, vy, sx, kind in row["ports"]:
                     if pnet != net:
                         continue
+                    vy = r5(y0 + vy)
                     if kind == "v1":
-                        self.via1(vx, vy)
+                        self.via("v1", vx, vy)
+                        self.rect("m1", vx - 0.105, vy - 0.145, vx + 0.105, vy + 0.145)
                         if abs(sx - vx) > 1e-6:
                             self.rect("m2", min(vx, sx) - 0.145, vy - 0.10,
                                       max(vx, sx) + 0.145, vy + 0.10)
                     self.rect("m2", sx - 0.10, vy - 0.145, sx + 0.10, ty + 0.145)
-                    self.via2(sx, ty)
-        block_top = r5(max(y0 + 0.2 for y0, _ in self.channels) +
-                       max(len({p[0] for p in ports}) for _, ports in self.channels) * TRACK + 0.6)
-        block_top = r5(max(block_top, max(max(v) for v in trunk_y.values()) + 0.9))
+                    self.via("v2", sx, ty)
+        ty_of = lambda net, r: r5(y_chan[r] + track[r][net][0] * TRACK)
         for net, x in riser.items():
-            ys = trunk_y[net]
-            top = block_top if net in self.pins else max(ys) + 0.145
-            self.rect("m2", x - 0.10, min(ys) - 0.145, x + 0.10, top)
+            ys = [ty_of(net, r) for r in sorted(in_rows[net])]
+            self.rect("m4", x - 0.10, ys[0] - 0.145, x + 0.10, ys[-1] + 0.145)
             for ty in ys:
-                self.via2(x, ty)
-            if net in self.pins:
-                # pin marker for the parent, and a label for LVS
-                self.top.shapes(LY["text"]).insert(pya.DText("pin:" + net, x, block_top - 0.1))
-                ty = max(ys)
-                self.rect("m3pin", x - 0.065, ty - 0.065, x + 0.065, ty + 0.065)
-                self.top.shapes(LY["m3txt"]).insert(pya.DText(net, x, ty))
-        missing = [p for p in self.pins if p not in riser]
-        if missing:
-            fail(f"{self.name}: pins with no connection: {missing}")
+                self.via("v3", x, ty)
+        for net, x in export.items():
+            ty = ty_of(net, last)
+            self.rect("m2", x - 0.10, ty - 0.145, x + 0.10, block_top)
+            self.via("v2", x, ty)
+            # pin marker for the parent, and a label for LVS
+            self.top.shapes(LY["text"]).insert(pya.DText("pin:" + net, x, block_top - 0.1))
+            self.rect("m3pin", x - 0.065, ty - 0.065, x + 0.065, ty + 0.065)
+            self.top.shapes(LY["m3txt"]).insert(pya.DText(net, x, ty))
         merge_duplicate_proxies()
         out = os.path.join(HERE, self.name + ".gds")
         layout.write(out)
         box = self.top.dbbox()
+        m3 = sum((hi - lo) for t in track for _, lo, hi in t.values())
         print(f"build_blocks: wrote {out}: {box.width():.1f} x {box.height():.1f} um, "
-              f"{sum(len(p) for _, p in self.channels)} pin connections")
+              f"{sum(len(row['ports']) for row in rows)} pin connections, "
+              f"{sum(len(t) for t in track)} trunks ({m3:.0f} um of Metal3), {len(riser)} risers")
 
 
 # ------------------------------------------------------------------ blocks --
@@ -492,7 +608,8 @@ def inv(a, y, vdd="vdd", vss="vss"):
 
 
 def invlvw(a, y):
-    return leaf("invlvw", [("vdd", 0.50, 2.03), ("vss", 1.115, 0.43), (a, 2.00, 1.23), (y, 2.48, 1.88)])
+    return leaf("invlvw", [("vdd", 0.50, 2.03), ("vss", 1.115, 0.43), (a, 2.00, 1.23), (y, 2.48, 1.88)],
+                well="vdd")
 
 
 def dff_c2mos():
@@ -526,11 +643,12 @@ def divider_16():
     b = Block("divider_16", ["in", "out", "vdd", "vss"], children=["dff_c2mos"])
     b.add(stdcells(LV_LIB, [inv("in", "net1"), inv("net1", "net2")]), "XB1 XB2")
     clk = "net2"
+    per_row = int(globals().get("per_row", 2))      # -rd per_row=1|2|4
     for i, (qb, q) in enumerate((("net3", "net4"), ("net5", "net6"), ("net7", "net8"), ("net9", "out"))):
-        if i == 2:
+        if i and i % per_row == 0:
             b.end_row()
-        b.add(child("dff_c2mos", {"d": qb, "clk": clk, "q": q, "qb": qb, "vdd": "vdd", "vss": "vss"}),
-              f"X{i + 1}")
+        b.add(child("dff_c2mos", {"d": qb, "clk": clk, "q": q, "qb": qb, "vdd": "vdd", "vss": "vss"},
+                    well="vdd"), f"X{i + 1}")
         clk = q
     b.route()
 
@@ -563,13 +681,15 @@ def muxhv():
 
 
 def schmlv(a, y):
-    return leaf("schmlv", [("vddl", 2.60, 6.10), ("vss", 1.25, 0.65), (a, 0.52, 2.43), (y, 5.70, 2.50)])
+    return leaf("schmlv", [("vddl", 2.60, 6.10), ("vss", 1.25, 0.65), (a, 0.52, 2.43), (y, 5.70, 2.50)],
+                well="vddl")
 
 
 def bidir_channel():
-    b = Block("bidir_channel",
-              ["a_pad", "b_pad", "dir", "oe_n", "en", "tm", "ring_div", "vddl", "vddh", "vss"],
-              children=["schmlv", "muxlv", "muxhv", "delay_2ns", "level_shifter_up", "divider_16"])
+    pins = ["a_pad", "b_pad", "dir", "oe_n", "en", "tm", "ring_div", "vddl", "vddh", "vss"]
+    children = ["schmlv", "muxlv", "muxhv", "delay_2ns", "level_shifter_up", "divider_16"]
+    for c in children:
+        gds_cell(c)
     L, H = "vddl", "vddh"
 
     def lv(name, **pins):
@@ -578,63 +698,65 @@ def bidir_channel():
     def hv(name, **pins):
         return ("sg13g2_hv_" + name, dict(pins, VDD=H, VSS="vss"))
 
-    # row 1: direction/enable logic and the 1.2 V side of the data path
-    b.add(stdcells(LV_LIB, [
-        lv("inv_1", A="dir", Y="net1"), lv("or2_1", A="net1", B="tm", X="net2"),
-        lv("and3_1", A="net2", B="oe", C="en", X="eur"), lv("and2_1", A="eur", B="net3", X="en_up"),
-        lv("inv_1", A="oe_n", Y="oe"), lv("or2_1", A="dir", B="tm", X="net4"),
-        lv("and3_1", A="net4", B="oe", C="en", X="ear"), lv("and2_1", A="ear", B="net5", X="en_a"),
-        lv("inv_1", A="en_a", Y="en_ab")]), "XU1 XO1 XU3 XU5 XU2 XO2 XU6 XU8 XU9")
-    b.add(schmlv("a_pad", "net6"), "XRX")
-    b.add(stdcells(LV_LIB, [lv("inv_1", A="net6", Y="net7")]), "XRB")
-    b.add(child("muxlv", {"in0": "net7", "in1": "z_l", "sel": "tm", "out": "net8", "vdd": L, "vss": "vss"}), "XM1")
-    b.add(stdcells(LV_LIB, [lv("nand2_1", A="net8", B="en_up", Y="a_nb"), lv("inv_1", A="a_nb", Y="net9")]),
-          "XG1 XG2")
-    b.add(schmlv("net20", "net21"), "XS2")
-    b.add(stdcells(LV_LIB, [lv("nand2_1", A="net21", B="en_a", Y="z_l"),
-                            lv("nand2_1", A="z_l", B="en_a", Y="net22"),
-                            lv("nor2_1", A="z_l", B="en_ab", Y="net23")]), "XPK XA1 XA2")
-    for i in range(4):
-        b.add(lv_mos("sg13_lv_pmos", 6.0, 0.13, "a_pad", "net22", L, L), f"MPA.{i + 1}")
-    for i in range(2):
-        b.add(lv_mos("sg13_lv_nmos", 6.0, 0.13, "a_pad", "net23", "vss"), f"MNA.{i + 1}")
-    b.end_row()
-    # row 2: break-before-make delays
-    b.add(child("delay_2ns", {"a": "eur", "y": "net3", "vdd": L, "vss": "vss"}), "XU4")
-    b.add(child("delay_2ns", {"a": "ear", "y": "net5", "vdd": L, "vss": "vss"}), "XU7")
-    b.end_row()
-    # row 3: level shifters for the enables
+    items = [
+        (child("divider_16", {"in": "z_l", "out": "ring_div", "vdd": L, "vss": "vss"}, well=L), "XDV"),
+        # direction/enable logic
+        (stdcells(LV_LIB, [
+            lv("inv_1", A="dir", Y="net1"), lv("or2_1", A="net1", B="tm", X="net2"),
+            lv("and3_1", A="net2", B="oe", C="en", X="eur"), lv("and2_1", A="eur", B="net3", X="en_up"),
+            lv("inv_1", A="oe_n", Y="oe"), lv("or2_1", A="dir", B="tm", X="net4"),
+            lv("and3_1", A="net4", B="oe", C="en", X="ear"), lv("and2_1", A="ear", B="net5", X="en_a"),
+            lv("inv_1", A="en_a", Y="en_ab")]), "XU1 XO1 XU3 XU5 XU2 XO2 XU6 XU8 XU9"),
+        (child("delay_2ns", {"a": "eur", "y": "net3", "vdd": L, "vss": "vss"}, well=L), "XU4"),
+        (child("delay_2ns", {"a": "ear", "y": "net5", "vdd": L, "vss": "vss"}, well=L), "XU7"),
+        # 1.2 V side of the data path and the 1.2 V pad driver
+        (schmlv("a_pad", "net6"), "XRX"),
+        (child("muxlv", {"in0": "net7", "in1": "z_l", "sel": "tm", "out": "net8", "vdd": L, "vss": "vss"},
+               well=L), "XM1"),
+        (stdcells(LV_LIB, [lv("inv_1", A="net6", Y="net7"), lv("nand2_1", A="net8", B="en_up", Y="a_nb"),
+                           lv("inv_1", A="a_nb", Y="net9"), lv("nand2_1", A="net21", B="en_a", Y="z_l"),
+                           lv("nand2_1", A="z_l", B="en_a", Y="net22"),
+                           lv("nor2_1", A="z_l", B="en_ab", Y="net23")]), "XRB XG1 XG2 XPK XA1 XA2"),
+        (schmlv("net20", "net21"), "XS2"),
+        (mos_fingers("sg13_lv_pmos", 24.0, 0.13, 4, "a_pad", "net22", L, L), "MPA"),
+        (mos_fingers("sg13_lv_nmos", 12.0, 0.13, 2, "a_pad", "net23", "vss"), "MNA"),
+        # data level shifter, 3.3 V pre-driver, 3.3 V receive path
+        (lv_mos("sg13_lv_nmos", 2.0, 0.13, "net11", "net9", "vss"), "MN1"),
+        (lv_mos("sg13_lv_nmos", 2.0, 0.13, "net13", "a_nb", "vss"), "MN2"),
+        (hv_mos("sg13_hv_nmos", 3.0, 0.45, "net10", L, "net11", "vss"), "MN3"),
+        (hv_mos("sg13_hv_nmos", 3.0, 0.45, "net12", L, "net13", "vss"), "MN4"),
+        (hv_mos("sg13_hv_nmos", 0.5, 0.45, "net12", "enb_h", "vss", "vss"), "MN5"),
+        (hv_mos("sg13_hv_pmos", 0.8, 0.8, "net10", "net12", H, H), "MP1"),
+        (hv_mos("sg13_hv_pmos", 0.8, 0.8, "net12", "net10", H, H), "MP2"),
+        (stdcells(HV_LIB, [hv("inv_1", A="net12", Y="net14"), hv("inv_2", A="net14", Y="z_h"),
+                           hv("nand2_2", A="z_h", B="en_b_h", Y="net15"),
+                           hv("nor2_2", A="z_h", B="enb_b_h", Y="net16")]), "XH1 XH2 XD1 XD2"),
+        (rppd(1.0, 0.5, "b_pad", "net17"), "RSER"),
+        (hv_mos("sg13_hv_nmos", 1.0, 0.45, "net18", "net17", "vss", "vss"), "MN7"),
+        (hv_mos("sg13_hv_pmos", 1.5, 0.45, "net18", "net17", H, H), "MP6"),
+        (child("muxhv", {"in0": "net18", "in1": "z_h", "sel": "tm_h", "selb": "tmb_h", "out": "net19",
+                         "vdd": H, "vss": "vss"}, well=H), "XM2"),
+        (hv_mos("sg13_hv_nmos", 0.8, 0.45, "net20", "net19", "vss", "vss"), "MN9"),
+        (hv_mos("sg13_hv_pmos", 1.0, 0.45, "net20", "net19", L, L), "MP8"),
+        # 3.3 V pad driver: one multi-finger device each
+        (mos_fingers("sg13_hv_nmos", 48.0, 0.45, 4, "b_pad", "net16", "vss", "vss"), "MND"),
+        (mos_fingers("sg13_hv_pmos", 96.0, 0.45, 8, "b_pad", "net15", H, H), "MPD"),
+    ]
     for inst, i, q, qb in (("XL2", "en", "en_h", "enb_h"), ("XL3", "tm", "tm_h", "tmb_h"),
                            ("XL1", "en_up", "en_b_h", "enb_b_h")):
-        b.add(child("level_shifter_up", {"in": i, "q_h": q, "qb_h": qb, "vddl": L, "vddh": H, "vss": "vss"}), inst)
-    b.end_row()
-    # row 4: data level shifter, 3.3 V pre-driver and the 3.3 V receive path
-    b.add(lv_mos("sg13_lv_nmos", 2.0, 0.13, "net11", "net9", "vss"), "MN1")
-    b.add(lv_mos("sg13_lv_nmos", 2.0, 0.13, "net13", "a_nb", "vss"), "MN2")
-    b.add(hv_mos("sg13_hv_nmos", 3.0, 0.45, "net10", L, "net11", "vss"), "MN3")
-    b.add(hv_mos("sg13_hv_nmos", 3.0, 0.45, "net12", L, "net13", "vss"), "MN4")
-    b.add(hv_mos("sg13_hv_nmos", 0.5, 0.45, "net12", "enb_h", "vss", "vss"), "MN5")
-    b.add(hv_mos("sg13_hv_pmos", 0.8, 0.8, "net10", "net12", H, H), "MP1")
-    b.add(hv_mos("sg13_hv_pmos", 0.8, 0.8, "net12", "net10", H, H), "MP2")
-    b.add(stdcells(HV_LIB, [hv("inv_1", A="net12", Y="net14"), hv("inv_2", A="net14", Y="z_h"),
-                            hv("nand2_2", A="z_h", B="en_b_h", Y="net15"),
-                            hv("nor2_2", A="z_h", B="enb_b_h", Y="net16")]), "XH1 XH2 XD1 XD2")
-    b.add(rppd(1.0, 0.5, "b_pad", "net17"), "RSER")
-    b.add(hv_mos("sg13_hv_nmos", 1.0, 0.45, "net18", "net17", "vss", "vss"), "MN7")
-    b.add(hv_mos("sg13_hv_pmos", 1.5, 0.45, "net18", "net17", H, H), "MP6")
-    b.add(child("muxhv", {"in0": "net18", "in1": "z_h", "sel": "tm_h", "selb": "tmb_h", "out": "net19",
-                          "vdd": H, "vss": "vss"}), "XM2")
-    b.add(hv_mos("sg13_hv_nmos", 0.8, 0.45, "net20", "net19", "vss", "vss"), "MN9")
-    b.add(hv_mos("sg13_hv_pmos", 1.0, 0.45, "net20", "net19", L, L), "MP8")
-    b.end_row()
-    # row 5: 3.3 V pad driver
-    for i in range(4):
-        b.add(hv_mos("sg13_hv_nmos", 12.0, 0.45, "b_pad", "net16", "vss", "vss"), f"MND.{i + 1}")
-    for i in range(8):
-        b.add(hv_mos("sg13_hv_pmos", 12.0, 0.45, "b_pad", "net15", H, H), f"MPD.{i + 1}")
-    b.end_row()
-    # row 6: test-mode divider
-    b.add(child("divider_16", {"in": "z_l", "out": "ring_div", "vdd": L, "vss": "vss"}), "XDV")
+        items.append((child("level_shifter_up",
+                            {"in": i, "q_h": q, "qb_h": qb, "vddl": L, "vddh": H, "vss": "vss"}), inst))
+    # try a range of row widths and keep the smallest bounding box
+    best = None
+    for width in range(40, 131, 2):
+        b = Block("bidir_channel", pins)
+        b.pack(items, width)
+        w, h = b.route(dry=True)
+        if best is None or w * h < best[0]:
+            best = (w * h, width)
+    print(f"build_blocks: row width {best[1]} um gives the smallest area")
+    b = Block("bidir_channel", pins)
+    b.pack(items, best[1])
     b.route()
 
 
