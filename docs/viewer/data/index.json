@@ -1,34 +1,40 @@
 {
  "cells": [
   {
+   "name": "sg13cmos5l_bidir_level_shifter",
+   "width": 500.0,
+   "height": 200.0,
+   "shapes": 46663
+  },
+  {
    "name": "bidir_channel",
    "width": 81.02,
    "height": 93.98,
-   "shapes": 11534
+   "shapes": 11591
   },
   {
    "name": "divider_16",
    "width": 81.02,
    "height": 21.72,
-   "shapes": 3063
+   "shapes": 3089
   },
   {
    "name": "dff_c2mos",
    "width": 37.87,
    "height": 7.99,
-   "shapes": 720
+   "shapes": 726
   },
   {
    "name": "delay_2ns",
    "width": 44.1,
    "height": 10.86,
-   "shapes": 675
+   "shapes": 679
   },
   {
    "name": "level_shifter_up",
    "width": 29.06,
    "height": 7.78,
-   "shapes": 524
+   "shapes": 525
   },
   {
    "name": "muxhv",
@@ -46,7 +52,7 @@
    "name": "muxlv",
    "width": 11.09,
    "height": 8.34,
-   "shapes": 228
+   "shapes": 229
   },
   {
    "name": "schmlv",
@@ -151,6 +157,12 @@
    "name": "Metal4",
    "color": "#93e837",
    "alpha": 0.45
+  },
+  {
+   "id": "189/4",
+   "name": "PR boundary",
+   "color": "#c070ff",
+   "alpha": 0.0
   }
  ]
 }

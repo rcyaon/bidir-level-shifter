@@ -35,9 +35,10 @@ LAYERS = [
     ((30, 0), "Metal3", "#d80000", 0.45),
     ((49, 0), "Via3", "#9ba940", 0.90),
     ((50, 0), "Metal4", "#93e837", 0.45),
+    ((189, 4), "PR boundary", "#c070ff", 0.0),
 ]
 # net labels and instance names; "pin:" markers are for build_blocks.py only
-TEXT_LAYERS = {(8, 25): "net", (30, 25): "net", (10, 25): "net", (63, 0): "inst"}
+TEXT_LAYERS = {(8, 25): "net", (10, 25): "net", (30, 25): "net", (50, 25): "net", (63, 0): "inst"}
 
 
 def main():
