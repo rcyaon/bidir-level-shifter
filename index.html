@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bidir-level-shifter layout viewer</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --text: #1c2026; --muted: #5d6673;
+    --line: #d9dde3; --accent: #0b6bcb; --canvas: #0d1014;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --panel: #1c2027; --text: #e6e9ee; --muted: #9aa3b0;
+      --line: #2e343d; --accent: #6db3ff; --canvas: #0a0c0f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid; grid-template-columns: 270px 1fr; grid-template-rows: 100%;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  aside {
+    background: var(--panel); border-right: 1px solid var(--line);
+    padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+  }
+  h1 { font-size: 15px; margin: 0; }
+  h2 {
+    font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 6px; font-weight: 600;
+  }
+  p { margin: 0; color: var(--muted); font-size: 12px; }
+  a { color: var(--accent); }
+  select, button {
+    font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  }
+  select { width: 100%; }
+  button { cursor: pointer; }
+  button:hover, select:hover { border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  #layers { list-style: none; margin: 0; padding: 0; }
+  #layers label {
+    display: flex; align-items: center; gap: 8px; padding: 3px 4px;
+    border-radius: 4px; cursor: pointer;
+  }
+  #layers label:hover { background: var(--bg); }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid; flex: none; }
+  .count { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  main { position: relative; min-width: 0; min-height: 0; background: var(--canvas); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+  #status {
+    position: absolute; left: 10px; bottom: 10px; padding: 4px 8px; border-radius: 6px;
+    background: rgba(0, 0, 0, .6); color: #e6e9ee; font-size: 12px;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+  }
+  #status:empty { display: none; }
+  #message {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: #9aa3b0; pointer-events: none; text-align: center; padding: 16px;
+  }
+  @media (max-width: 720px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto minmax(55vh, 1fr); height: auto; min-height: 100%; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 45vh; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <div>
+    <h1>bidir-level-shifter</h1>
+    <p>Layout viewer. Drag to pan, scroll or pinch to zoom.</p>
+  </div>
+  <div>
+    <h2>Cell</h2>
+    <select id="cell" aria-label="Cell"></select>
+    <p id="info" style="margin-top:6px"></p>
+  </div>
+  <div class="row">
+    <button id="fit" type="button">Fit</button>
+    <button id="all" type="button">All layers</button>
+    <button id="none" type="button">None</button>
+  </div>
+  <div>
+    <h2>Layers</h2>
+    <ul id="layers"></ul>
+  </div>
+  <div>
+    <h2>Labels</h2>
+    <ul id="labels" style="list-style:none;margin:0;padding:0">
+      <li><label><input type="checkbox" id="nets" checked> Net names</label></li>
+      <li><label><input type="checkbox" id="insts"> Instance names</label></li>
+    </ul>
+  </div>
+  <p>IHP SG13CMOS5L. Generated from <code>layout/*.gds</code> by
+     <code>docs/viewer/make_data.py</code>.</p>
+</aside>
+<main>
+  <canvas id="view" aria-label="Layout"></canvas>
+  <div id="message">Loading…</div>
+  <div id="status"></div>
+</main>
+<script>
+"use strict";
+const canvas = document.getElementById("view"), ctx = canvas.getContext("2d");
+const $ = id => document.getElementById(id);
+let layerDefs = [], visible = {}, cell = null, paths = {};
+let scale = 1, ox = 0, oy = 0;            // screen = (world_um * scale + ox, -world_um * scale + oy)
+
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+function resize() {
+  const r = canvas.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(r.width * d));
+  canvas.height = Math.max(1, Math.round(r.height * d));
+  draw();
+}
+
+function fit() {
+  if (!cell) return;
+  const r = canvas.getBoundingClientRect();
+  const [x1, y1, x2, y2] = cell.bbox.map(v => v / 1000);
+  const w = Math.max(x2 - x1, 1e-3), h = Math.max(y2 - y1, 1e-3);
+  scale = 0.92 * Math.min(r.width / w, r.height / h);
+  ox = r.width / 2 - (x1 + x2) / 2 * scale;
+  oy = r.height / 2 + (y1 + y2) / 2 * scale;
+  draw();
+}
+
+function buildPaths() {
+  paths = {};
+  for (const [id, shapes] of Object.entries(cell.layers)) {
+    const p = new Path2D();
+    for (const s of shapes) {
+      if (s.length === 4) {
+        p.rect(s[0] / 1000, s[1] / 1000, (s[2] - s[0]) / 1000, (s[3] - s[1]) / 1000);
+      } else {
+        p.moveTo(s[0] / 1000, s[1] / 1000);
+        for (let i = 2; i < s.length; i += 2) p.lineTo(s[i] / 1000, s[i + 1] / 1000);
+        p.closePath();
+      }
+    }
+    paths[id] = p;
+  }
+}
+
+function niceStep(um) {
+  const p = Math.pow(10, Math.floor(Math.log10(um)));
+  return [1, 2, 5, 10].map(m => m * p).find(v => v >= um);
+}
+
+function draw() {
+  const d = window.devicePixelRatio || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!cell) return;
+  ctx.setTransform(scale * d, 0, 0, -scale * d, ox * d, oy * d);
+  ctx.lineWidth = 1 / scale;
+  for (const l of layerDefs) {
+    if (!visible[l.id] || !paths[l.id]) continue;
+    ctx.fillStyle = rgba(l.color, l.alpha);
+    ctx.strokeStyle = rgba(l.color, 0.9);
+    ctx.fill(paths[l.id]);
+    ctx.stroke(paths[l.id]);
+  }
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  const w = canvas.width / d, h = canvas.height / d;
+  // labels, only where they are on screen
+  const show = { net: $("nets").checked, inst: $("insts").checked };
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  for (const [text, x, y, kind] of cell.labels) {
+    if (!show[kind]) continue;
+    const sx = x / 1000 * scale + ox, sy = -y / 1000 * scale + oy;
+    if (sx < -50 || sy < -10 || sx > w + 10 || sy > h + 10) continue;
+    const tw = ctx.measureText(text).width;
+    ctx.fillStyle = "rgba(0,0,0,.65)";
+    ctx.fillRect(sx + 3, sy - 8, tw + 6, 16);
+    ctx.fillStyle = kind === "net" ? "#ffe27a" : "#ffffff";
+    ctx.fillText(text, sx + 6, sy);
+    ctx.fillRect(sx - 1.5, sy - 1.5, 3, 3);
+  }
+  // scale bar
+  const step = niceStep(90 / scale), len = step * scale;
+  ctx.fillStyle = "#e6e9ee";
+  ctx.fillRect(w - len - 14, h - 18, len, 2);
+  ctx.textAlign = "right";
+  ctx.fillText(step >= 1 ? `${step} µm` : `${Math.round(step * 1000)} nm`, w - 14, h - 28);
+  ctx.textAlign = "left";
+}
+
+async function loadCell(name) {
+  $("message").textContent = "Loading…";
+  try {
+    const r = await fetch(`data/${name}.json`);
+    if (!r.ok) throw new Error(r.status);
+    cell = await r.json();
+  } catch (e) {
+    cell = null;
+    $("message").textContent = `Could not load ${name}.`;
+    draw();
+    return;
+  }
+  $("message").textContent = "";
+  buildPaths();
+  for (const li of document.querySelectorAll("#layers li")) {
+    const n = (cell.layers[li.dataset.id] || []).length;
+    li.querySelector(".count").textContent = n || "";
+    li.style.opacity = n ? 1 : 0.4;
+  }
+  const [x1, y1, x2, y2] = cell.bbox;
+  $("info").textContent = `${((x2 - x1) / 1000).toFixed(1)} × ${((y2 - y1) / 1000).toFixed(1)} µm`;
+  try { history.replaceState(null, "", "#" + name); } catch (e) {}
+  fit();
+}
+
+async function start() {
+  let index;
+  try {
+    index = await (await fetch("data/index.json")).json();
+  } catch (e) {
+    $("message").textContent = "Could not load data/index.json. Serve this folder over http.";
+    return;
+  }
+  layerDefs = index.layers;
+  const list = $("layers");
+  for (const l of layerDefs) {
+    visible[l.id] = true;
+    const li = document.createElement("li");
+    li.dataset.id = l.id;
+    const label = document.createElement("label"), box = document.createElement("input");
+    box.type = "checkbox"; box.checked = true;
+    box.addEventListener("change", () => { visible[l.id] = box.checked; draw(); });
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = rgba(l.color, Math.max(l.alpha, 0.35));
+    sw.style.borderColor = l.color;
+    const name = document.createElement("span"); name.textContent = l.name;
+    const count = document.createElement("span"); count.className = "count";
+    label.append(box, sw, name, count); li.append(label); list.append(li);
+  }
+  const select = $("cell");
+  for (const c of index.cells) {
+    const o = document.createElement("option");
+    o.value = c.name; o.textContent = `${c.name}  (${c.width} × ${c.height} µm)`;
+    select.append(o);
+  }
+  select.addEventListener("change", () => loadCell(select.value));
+  const wanted = decodeURIComponent(location.hash.slice(1));
+  if (index.cells.some(c => c.name === wanted)) select.value = wanted;
+  resize();
+  loadCell(select.value);
+}
+
+function setAll(on) {
+  for (const box of document.querySelectorAll("#layers input")) box.checked = on;
+  for (const l of layerDefs) visible[l.id] = on;
+  draw();
+}
+$("fit").addEventListener("click", fit);
+$("all").addEventListener("click", () => setAll(true));
+$("none").addEventListener("click", () => setAll(false));
+$("nets").addEventListener("change", draw);
+$("insts").addEventListener("change", draw);
+window.addEventListener("resize", resize);
+
+// pan and zoom: mouse, touch and pen through pointer events
+const pointers = new Map();
+let pinch = 0;
+function zoomAt(x, y, factor) {
+  const s = Math.min(Math.max(scale * factor, 0.5), 5000);
+  ox = x - (x - ox) * (s / scale);
+  oy = y - (y - oy) * (s / scale);
+  scale = s;
+  draw();
+}
+function local(e) {
+  const r = canvas.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+canvas.addEventListener("pointerdown", e => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, local(e));
+  canvas.classList.add("dragging");
+  pinch = 0;
+});
+canvas.addEventListener("pointermove", e => {
+  const [x, y] = local(e);
+  if (cell) {
+    $("status").textContent =
+      `x ${((x - ox) / scale).toFixed(3)}  y ${((oy - y) / scale).toFixed(3)} µm`;
+  }
+  if (!pointers.has(e.pointerId)) return;
+  const [px, py] = pointers.get(e.pointerId);
+  pointers.set(e.pointerId, [x, y]);
+  if (pointers.size === 1) {
+    ox += x - px; oy += y - py;
+    draw();
+  } else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pinch) zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, dist / pinch);
+    pinch = dist;
+  }
+});
+function release(e) {
+  pointers.delete(e.pointerId);
+  pinch = 0;
+  if (!pointers.size) canvas.classList.remove("dragging");
+}
+canvas.addEventListener("pointerup", release);
+canvas.addEventListener("pointercancel", release);
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const [x, y] = local(e);
+  zoomAt(x, y, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+}, { passive: false });
+
+start();
+</script>
+</body>
+</html>
