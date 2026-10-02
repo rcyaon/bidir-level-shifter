@@ -3,15 +3,18 @@
 # Each block is built as one or more rows of components with a routing
 # channel above every row:
 #   - a component is a PDK standard cell (or a run of abutting ones), a leaf
-#     cell from <leaf>.gds, a child block, or one or two MOSFET PCells with
-#     their contacts and tap,
+#     cell from <leaf>.gds, a child block, or a group of MOSFET PCells with
+#     their contacts and one tap or guard ring,
 #   - every pin gets a vertical Metal2 stub up into the channel above its row,
 #   - every net gets a horizontal Metal3 trunk in each channel it has pins in,
 #   - a net that spans rows gets one vertical Metal4 riser joining its
 #     trunks, placed as close to its pins as possible. A block's pins end as
 #     Metal2 stubs on its top edge so the parent can pick them up the same way.
-# The result is correct by construction and checked with DRC/LVS, but it is
-# not compact: nothing shares diffusion and the channels are not optimised.
+# MOSFETs are grouped to keep them close: devices with a common net and the
+# same size are fingers of one PCell and share that diffusion, HV devices of
+# one type sit in one guard ring, and transmission gates share a well and tap.
+# The result is correct by construction and checked with DRC/LVS. The routing
+# channels are not optimised.
 #
 # Run inside the container, from layout/, with KLAYOUT_PATH set for
 # ihp-sg13cmos5l (see README.md):
@@ -35,7 +38,7 @@ LY = {n: layout.layer(*ld) for n, ld in dict(
     activ=(1, 0), poly=(5, 0), cont=(6, 0), m1=(8, 0), m1pin=(8, 2),
     m1txt=(8, 25), v1=(19, 0), m2=(10, 0), v2=(29, 0), m3=(30, 0),
     m3pin=(30, 2), m3txt=(30, 25), v3=(49, 0), m4=(50, 0), nwell=(31, 0),
-    text=(63, 0)).items()}
+    tgo=(44, 0), text=(63, 0)).items()}
 
 
 def fail(msg):
@@ -253,43 +256,24 @@ def gate_contact(c, gx1, gx2, y_poly, up, net=None):
     return gc, cy
 
 
-def mos_geom(ci):
-    """(left terminal, right terminal, gate poly, guard ring or None)."""
-    poly = boxes(ci, "poly")[0]
-    m1 = boxes(ci, "m1")
-    terms = sorted([b for b in m1 if b.bottom > -0.01 and b.left > -0.01 and b.top <= poly.top],
-                   key=lambda b: b.left)
-    ring = [b for b in m1 if b not in terms]
-    outer = None
-    for b in ring:
-        outer = b if outer is None else outer + b
-    return terms[0], terms[-1], poly, outer
+def chain_cell(model, w, l, nets):
+    """PCell for a chain of MOSFETs that share their sources/drains.
 
-
-def lv_mos(model, w, l, d, g, s, bulk=None):
-    """One LV MOSFET: source/drain vias beside it, gate contact above.
-
-    A PMOS gets an ntap1 in its well, wired to `bulk`. An NMOS relies on the
-    substrate ties of the standard cells and guard rings around it.
+    `nets` is [sd, gate, sd, gate, ..., sd]: one finger of width `w` per gate.
+    Neighbouring fingers share one diffusion strip, whether they are fingers
+    of one device or different devices. Returns (cell, terminals, gates).
     """
-    name = "pmos" if "pmos" in model else "nmos"
-    c = Comp(well=bulk if name == "pmos" else None)
-    ci = pcell(name, model=model, w=f"{w}u", l=f"{l}u", ng="1")
-    c.inst(ci)
-    t1, t2, poly, _ = mos_geom(ci)
-    y1 = r5(min(0.145, w / 2))
-    y2 = r5(max(y1, w - 0.145))
-    for term, net, sign in ((t1, s, -1), (t2, d, 1)):
-        vx = r5((term.left if sign < 0 else term.right) + sign * 0.30)
-        c.box("m1", vx - sign * 0.105, 0.0, term.center().x, 0.29)
-        c.box("m1", vx - 0.105, y1 - 0.145, vx + 0.105, y2 + 0.145)
-        if w >= 1.5:
-            c.box("m1", vx - sign * 0.105, w - 0.29, term.center().x, w)
-        c.port(net, vx, y1, top=y2)
-    gate_contact(c, poly.left, poly.right, poly.top, True, g)
-    if name == "pmos":
-        add_ntap(c, t2.right + 0.30 + 0.105 + 0.30, 0.0, bulk)
-    return c
+    hv, pm = "_hv_" in model, "pmos" in model
+    ng = len(nets) // 2
+    params = dict(model=model, w=f"{r5(w * ng):g}u", l=f"{l}u", ng=str(ng))
+    if hv:
+        params["guardRingType"] = "none"
+    ci = pcell(("pmos" if pm else "nmos") + ("HV" if hv else ""), **params)
+    polys = sorted(boxes(ci, "poly"), key=lambda b: b.left)
+    terms = sorted([b for b in boxes(ci, "m1") if b.top <= polys[0].top], key=lambda b: b.left)
+    if len(terms) != ng + 1 or len(polys) != ng:
+        fail(f"{model} ng={ng}: unexpected PCell geometry")
+    return ci, terms, polys
 
 
 def add_ntap(c, x0, y0, net):
@@ -303,91 +287,164 @@ def add_ntap(c, x0, y0, net):
     c.box("nwell", well.left, well.bottom, well.right, well.top)
 
 
-def tgate(wn, wp, a, b, gn, gp, vdd):
-    """LV transmission gate: NMOS below, PMOS above, sides strapped in Metal1.
+def gates_above(c, terms, polys, nets, x=0.0, y=0.0):
+    """Contact the gates of a chain at (x, y) above it; returns the right end.
 
-    The NMOS gate is contacted below the device and brought out to the left;
-    the PMOS gate is contacted above it. One ntap1 ties the well to `vdd`.
+    A gate of 0.45 um or longer has room for its own contact. Short gates
+    are too close to the source/drain stubs for that: with one net they are
+    joined by a poly bar with a contact at its left end, and two gates on
+    different nets get a bar each, one to the left and one to the right.
+    """
+    top = y + polys[0].top
+    if polys[0].width() >= 0.44:
+        for p, net in zip(polys, nets):
+            gate_contact(c, x + p.left, x + p.right, top, True, net)
+        return x + terms[-1].right
+    bar = r5(top - 0.03)
+    x0, x1 = r5(x + terms[0].left - 0.50), r5(x + terms[-1].right + 0.50)
+    if len(set(nets)) == 1:
+        c.box("poly", x0, bar, x + polys[-1].right, bar + 0.16)
+        gate_contact(c, x0, x0 + 0.30, bar, True, nets[0])
+        return x + terms[-1].right
+    if len(nets) != 2:
+        fail("more than two short gates on different nets in one chain")
+    c.box("poly", x0, bar, x + polys[0].right, bar + 0.16)
+    gate_contact(c, x0, x0 + 0.30, bar, True, nets[0])
+    c.box("poly", x + polys[1].left, bar, x1, bar + 0.16)
+    gate_contact(c, x1 - 0.30, x1, bar, True, nets[1])
+    return x1
+
+
+def lv_chain(model, w, l, nets, bulk=None):
+    """LV MOSFETs sharing diffusion: `nets` as for chain_cell.
+
+    Every source/drain strip is a port. A PMOS chain gets one ntap1 in its
+    well, wired to `bulk`. An NMOS relies on the substrate ties of the
+    standard cells and guard rings around it.
+    """
+    c = Comp(well=bulk if "pmos" in model else None)
+    ci, terms, polys = chain_cell(model, w, l, nets)
+    c.inst(ci)
+    y1 = r5(min(0.145, w / 2))
+    for i, t in enumerate(terms):
+        c.port(nets[2 * i], r5(t.center().x), y1, top=w - 0.145)
+    right = gates_above(c, terms, polys, nets[1::2])
+    if "pmos" in model:
+        add_ntap(c, r5(right + 0.30), 0.0, bulk)
+    return c
+
+
+def fingers(ng, d, g, s):
+    """Net list of one device drawn as `ng` fingers: s g d g s ..."""
+    nets = [s]
+    for i in range(ng):
+        nets += [g, s if i % 2 else d]
+    return nets
+
+
+def hv_row(model, devs, bulk):
+    """HV MOSFETs of one type side by side in one guard ring.
+
+    devs: [(w, l, nets)], each a chain as for chain_cell, so devices with a
+    common net and the same size share diffusion; the others are an Activ
+    space apart. The ring is the bulk tie (psub for NMOS, n-well for PMOS)
+    and sits as close as the thick-oxide spacing allows.
+    """
+    pm = "pmos" in model
+    c = Comp(well=bulk if pm else None)
+    x, tgo = 0.0, pya.DBox()
+    for w, l, nets in devs:
+        ci, terms, polys = chain_cell(model, w, l, nets)
+        c.inst(ci, x, 0.0)
+        y1 = r5(min(0.145, w / 2))
+        for i, t in enumerate(terms):
+            c.port(nets[2 * i], r5(x + t.center().x), y1, top=w - 0.145)
+        for p, net in zip(polys, nets[1::2]):
+            gate_contact(c, x + p.left, x + p.right, p.top, True, net)
+        for b in boxes(ci, "tgo"):
+            tgo += b.moved(x, 0.0)
+        x = r5(x + terms[-1].right + 0.07 + 0.21)
+    c.box("tgo", tgo.left, tgo.bottom, tgo.right, tgo.top)
+    # ring: 0.30 wide, 0.27 from the thick oxide; the PCell is centred, so
+    # its width and height have to be multiples of 10 nm
+    d = 0.27 + 0.30
+    xl, yb = r5(tgo.left - d), r5(tgo.bottom - d)
+    rw, rh = [round((v + d - o) / 0.01 + 0.499) * 0.01 for v, o in ((tgo.right, xl), (tgo.top, yb))]
+    ring = pcell("guard_ring", type="nwell" if pm else "psub", w=f"{rw:.2f}u", h=f"{rh:.2f}u")
+    c.inst(ring, r5(xl + rw / 2), r5(yb + rh / 2))
+    c.port(bulk, r5(xl + 0.15), r5(yb + rh - 0.15))
+    return c
+
+
+def tgate_pairs(pairs, vdd):
+    """LV transmission gates in one well, NMOS below and PMOS above.
+
+    pairs: [(t1, t2)], each t = (wn, wp, a, b, gn, gp) with t1's b being
+    t2's a. Two gates of the same size share that diffusion; otherwise the
+    two strips are joined in Metal1. Sources/drains are strapped from NMOS
+    to PMOS in Metal1, PMOS gates are contacted above, NMOS gates below and
+    brought out sideways. One ntap1 at the right end ties the well to `vdd`.
     """
     c = Comp(well=vdd)
-    n = pcell("nmos", model="sg13_lv_nmos", w=f"{wn}u", l="0.13u", ng="1")
-    p = pcell("pmos", model="sg13_lv_pmos", w=f"{wp}u", l="0.13u", ng="1")
-    p0 = r5(wn + 0.70)
-    c.inst(n)
-    c.inst(p, 0.0, p0)
-    t1, t2, poly, _ = mos_geom(n)
-    yn, yp = r5(max(wn / 2, 0.145)), r5(p0 + wp / 2)
-    off = 0.30                # strap to terminal: 0.195 clear where they don't join
-    for term, net, sign in ((t1, a, -1), (t2, b, 1)):
-        vx = r5((term.left if sign < 0 else term.right) + sign * off)
-        for y in (yn, yp):
-            c.box("m1", vx - sign * 0.105, y - 0.145, term.center().x, y + 0.145)
-        c.box("m1", vx - 0.105, yn - 0.145, vx + 0.105, yp + 0.145)
-        c.port(net, vx, r5((yn + yp) / 2))
-    left = r5(t1.left - off)
-    gc, cy = gate_contact(c, poly.left, poly.right, poly.bottom, False)
-    vx = r5(left - PITCH)
-    c.box("m1", vx - 0.105, cy - 0.145, gc, cy + 0.145)
-    c.port(gn, vx, cy)
-    gate_contact(c, poly.left, poly.right, p0 + wp + 0.18, True, gp)
-    add_ntap(c, t2.right + off + 0.105 + 0.30, p0, vdd)
-    return c
+    wn_max = max(t[0] for pair in pairs for t in pair)
+    p0, yv, cy = r5(wn_max + 0.70), r5(wn_max + 0.35), -0.36
+    x, last = 0.0, None
 
+    def strap(t, dx, wp):
+        c.box("m1", dx + t.left, 0.0, dx + t.right, p0 + wp)
 
-def hv_mos(model, w, l, d, g, s, bulk):
-    """One HV MOSFET in its PCell guard ring; the ring is the bulk tie."""
-    c = Comp(well=bulk if "pmos" in model else None)
-    name, ring_type = ("pmosHV", "nwell") if "pmos" in model else ("nmosHV", "psub")
-    ci = pcell(name, model=model, w=f"{w}u", l=f"{l}u", ng="1", guardRingType=ring_type)
-    c.inst(ci)
-    t1, t2, poly, ring = mos_geom(ci)
-    y1 = r5(min(0.145, w / 2))
-    for term, net in ((t1, s), (t2, d)):
-        c.port(net, r5(term.center().x), y1, top=w - 0.145)
-    gate_contact(c, poly.left, poly.right, poly.top, True, g)
-    c.port(bulk, r5(ring.left + 0.15), r5(ring.top - 0.15))
-    return c
+    def n_gate(poly, dx, vx, net):
+        gc, _ = gate_contact(c, dx + poly.left, dx + poly.right, poly.bottom, False)
+        c.box("m1", vx - 0.105, cy - 0.145, gc, cy + 0.145)
+        c.box("m1", vx + 0.105, cy - 0.145, gc, cy + 0.145)
+        c.port(net, vx, cy)
 
-
-def mos_fingers(model, w, l, ng, d, g, s, bulk=None):
-    """A multi-finger MOSFET (w is the total width): neighbouring fingers
-    share their source/drain, so it is far narrower than `ng` single devices.
-
-    Every source/drain strip is a port. HV gates are contacted one by one;
-    LV gates are too close together for that and are joined by a poly bar
-    with one contact at its left end.
-    """
-    hv, pm = "_hv_" in model, "pmos" in model
-    params = dict(model=model, w=f"{w}u", l=f"{l}u", ng=str(ng))
-    if hv:
-        params["guardRingType"] = "nwell" if pm else "psub"
-    ci = pcell(("pmos" if pm else "nmos") + ("HV" if hv else ""), **params)
-    c = Comp(well=bulk if pm else None)
-    c.inst(ci)
-    polys = sorted(boxes(ci, "poly"), key=lambda b: b.left)
-    m1 = boxes(ci, "m1")
-    terms = sorted([b for b in m1 if b.bottom > -0.01 and b.left > -0.01 and b.top <= polys[0].top],
-                   key=lambda b: b.left)
-    if len(terms) != ng + 1 or len(polys) != ng:
-        fail(f"{model} ng={ng}: unexpected PCell geometry")
-    wf = terms[0].height()
-    y1 = r5(min(0.145, wf / 2))
-    for i, t in enumerate(terms):
-        c.port(d if i % 2 else s, r5(t.center().x), y1, top=wf - 0.145)
-    if hv:
-        for poly in polys:
-            gate_contact(c, poly.left, poly.right, poly.top, True, g)
-        ring = None
-        for b in m1:
-            if b not in terms:
-                ring = b if ring is None else ring + b
-        c.port(bulk, r5(ring.left + 0.15), r5(ring.top - 0.15))
-    else:
-        x0 = r5(terms[0].left - 0.50)
-        c.box("poly", x0, wf + 0.15, polys[-1].right, wf + 0.31)
-        gate_contact(c, x0, x0 + 0.30, wf + 0.15, True, g)
-        if pm:
-            add_ntap(c, terms[-1].right + 0.30, 0.0, bulk)
+    for t1, t2 in pairs:
+        (wn, wp, a, m, gn1, gp1), (wn2, wp2, m2, b, gn2, gp2) = t1, t2
+        if m != m2:
+            fail("tgate_pairs: the two gates of a pair need a common net")
+        if (wn, wp) == (wn2, wp2):
+            n, terms, polys = chain_cell("sg13_lv_nmos", wn, 0.13, [a, gn1, m, gn2, b])
+            p, p_terms, p_polys = chain_cell("sg13_lv_pmos", wp, 0.13, [a, gp1, m, gp2, b])
+            first = r5(terms[0].left - 0.35 - PITCH)
+            if last is not None:
+                x = r5(last + PITCH - first)
+            c.inst(n, x, 0.0)
+            c.inst(p, x, p0)
+            for t, net in zip(terms, (a, m, b)):
+                strap(t, x, wp)
+                c.port(net, r5(x + t.center().x), yv)
+            x1 = gates_above(c, p_terms, p_polys, [gp1, gp2], x, p0)
+            last = r5(x1 - 0.15 + PITCH)
+            n_gate(polys[0], x, r5(x + first), gn1)
+            n_gate(polys[1], x, last, gn2)
+        else:
+            cells = [(chain_cell("sg13_lv_nmos", t[0], 0.13, [0, 0, 0]),
+                      chain_cell("sg13_lv_pmos", t[1], 0.13, [0, 0, 0])[0]) for t in (t1, t2)]
+            terms, polys = cells[0][0][1], cells[0][0][2]
+            pitch = r5(terms[-1].right + 0.07 + 0.21)       # one device plus an Activ space
+            gc = polys[0].center().x
+            first = r5(gc - 2 * PITCH)
+            if last is not None:
+                x = r5(last + PITCH - first)
+            for k, (t, gn, gp) in enumerate(((t1, gn1, gp1), (t2, gn2, gp2))):
+                dx = r5(x + k * pitch)
+                c.inst(cells[k][0][0], dx, 0.0)
+                c.inst(cells[k][1], dx, p0)
+                for term in terms:
+                    strap(term, dx, t[1])
+                gate_contact(c, dx + polys[0].left, dx + polys[0].right, p0 + t[1] + 0.18, True, gp)
+                vx = r5(dx + gc + (2 * k - 1) * 2 * PITCH)
+                n_gate(polys[0], dx, vx, gn)
+                last = vx
+            # outer strips widened for a via clear of the gate stubs, inner ones joined
+            c.box("m1", x + gc - PITCH - 0.105, yv - 0.145, x + terms[0].right, yv + 0.145)
+            c.port(a, r5(x + gc - PITCH), yv)
+            c.box("m1", x + terms[-1].left, yv - 0.145, x + pitch + terms[0].right, yv + 0.145)
+            c.port(m, r5(x + (terms[-1].center().x + pitch + terms[0].center().x) / 2), yv)
+            c.box("m1", x + pitch + terms[-1].left, yv - 0.145, x + pitch + gc + PITCH + 0.105, yv + 0.145)
+            c.port(b, r5(x + pitch + gc + PITCH), yv)
+    add_ntap(c, r5(last + PITCH - 0.39), p0, vdd)
     return c
 
 
@@ -614,28 +671,24 @@ def invlvw(a, y):
 
 def dff_c2mos():
     b = Block("dff_c2mos", ["d", "clk", "q", "qb", "vdd", "vss"], children=["invlvw"])
-    b.add(stdcells(LV_LIB, [inv("clk", "clkb"), inv("clkb", "clki")]), "XI0 XI9")
-    b.add(tgate(0.6, 1.2, "d", "net1", "clkb", "clki", "vdd"), "MT1")
-    b.add(tgate(0.3, 0.6, "net4", "net1", "clki", "clkb", "vdd"), "MT2")
-    b.add(stdcells(LV_LIB, [inv("net1", "net2")]), "XI1")
+    # each latch's two transmission gates meet on its storage node
+    b.add(tgate_pairs([((0.6, 1.2, "d", "net1", "clkb", "clki"), (0.3, 0.6, "net1", "net4", "clki", "clkb")),
+                       ((0.6, 1.2, "net2", "net3", "clki", "clkb"), (0.3, 0.6, "net3", "net5", "clkb", "clki"))],
+                      "vdd"), "MT1 MT2 MT3 MT4")
     b.add(invlvw("net2", "net4"), "XI2")
-    b.add(tgate(0.6, 1.2, "net2", "net3", "clki", "clkb", "vdd"), "MT3")
-    b.add(tgate(0.3, 0.6, "net5", "net3", "clkb", "clki", "vdd"), "MT4")
-    b.add(stdcells(LV_LIB, [inv("net3", "net6")]), "XI3")
+    b.add(stdcells(LV_LIB, [inv("clk", "clkb"), inv("clkb", "clki"), inv("net1", "net2"), inv("net3", "net6"),
+                            inv("net6", "qb"), inv("qb", "q")]), "XI0 XI9 XI1 XI3 XI5 XI6")
     b.add(invlvw("net6", "net5"), "XI4")
-    b.add(stdcells(LV_LIB, [inv("net6", "qb"), inv("qb", "q")]), "XI5 XI6")
     b.route()
 
 
 def level_shifter_up():
     b = Block("level_shifter_up", ["in", "q_h", "qb_h", "vddl", "vddh", "vss"])
     b.add(stdcells(LV_LIB, [inv("in", "net3", "vddl")]), "XI")
-    b.add(lv_mos("sg13_lv_nmos", 1.0, 0.13, "net1", "in", "vss"), "MN1")
-    b.add(lv_mos("sg13_lv_nmos", 1.0, 0.13, "net2", "net3", "vss"), "MN2")
-    b.add(hv_mos("sg13_hv_nmos", 1.5, 0.45, "qb_h", "vddl", "net1", "vss"), "MC1")
-    b.add(hv_mos("sg13_hv_nmos", 1.5, 0.45, "q_h", "vddl", "net2", "vss"), "MC2")
-    b.add(hv_mos("sg13_hv_pmos", 0.5, 1.6, "qb_h", "q_h", "vddh", "vddh"), "MP1")
-    b.add(hv_mos("sg13_hv_pmos", 0.5, 1.6, "q_h", "qb_h", "vddh", "vddh"), "MP2")
+    b.add(lv_chain("sg13_lv_nmos", 1.0, 0.13, ["net1", "in", "vss", "net3", "net2"]), "MN1 MN2")
+    b.add(hv_row("sg13_hv_nmos", [(1.5, 0.45, ["net1", "vddl", "qb_h"]),
+                                  (1.5, 0.45, ["q_h", "vddl", "net2"])], "vss"), "MC1 MC2")
+    b.add(hv_row("sg13_hv_pmos", [(0.5, 1.6, ["qb_h", "q_h", "vddh", "qb_h", "q_h"])], "vddh"), "MP1 MP2")
     b.route()
 
 
@@ -656,27 +709,27 @@ def divider_16():
 def delay_2ns():
     b = Block("delay_2ns", ["a", "y", "vdd", "vss"])
     nets = ["a", "net1", "net2", "net3", "y"]
-    for i in range(4):
-        b.add(stdcells(LV_LIB, [inv(nets[i], nets[i + 1])]), f"X{i + 1}")
-        # MOS capacitor: gate on the node, source/drain on vss
-        b.add(lv_mos("sg13_lv_nmos", 3.2 if i == 3 else 7.4, 6.0, "vss", nets[i + 1], "vss"), f"MC{i + 1}")
+    # MOS capacitors: gate on the node, source/drain on vss, so neighbours share a strip.
+    # The inverters go on both sides of them: their substrate ties are the capacitors' too.
+    b.add(stdcells(LV_LIB, [inv(nets[i], nets[i + 1]) for i in (0, 1)]), "X1 X2")
+    b.add(lv_chain("sg13_lv_nmos", 7.4, 6.0, ["vss", "net1", "vss", "net2", "vss", "net3", "vss"]), "MC1 MC2 MC3")
+    b.add(stdcells(LV_LIB, [inv(nets[i], nets[i + 1]) for i in (2, 3)]), "X3 X4")
+    b.add(lv_chain("sg13_lv_nmos", 3.2, 6.0, ["vss", "y", "vss"]), "MC4")
     b.route()
 
 
 def muxlv():
     b = Block("muxlv", ["in0", "in1", "sel", "out", "vdd", "vss"])
     b.add(stdcells(LV_LIB, [inv("sel", "net1")]), "XI")
-    b.add(tgate(1.0, 2.0, "in0", "out", "net1", "sel", "vdd"), "MT0")
-    b.add(tgate(1.0, 2.0, "in1", "out", "sel", "net1", "vdd"), "MT1")
+    b.add(tgate_pairs([((1.0, 2.0, "in0", "out", "net1", "sel"), (1.0, 2.0, "out", "in1", "sel", "net1"))],
+                      "vdd"), "MT0 MT1")
     b.route()
 
 
 def muxhv():
     b = Block("muxhv", ["in0", "in1", "sel", "selb", "out", "vdd", "vss"])
-    b.add(hv_mos("sg13_hv_nmos", 1.5, 0.45, "out", "selb", "in0", "vss"), "MT0N")
-    b.add(hv_mos("sg13_hv_nmos", 1.5, 0.45, "out", "sel", "in1", "vss"), "MT1N")
-    b.add(hv_mos("sg13_hv_pmos", 3.0, 0.45, "out", "sel", "in0", "vdd"), "MT0P")
-    b.add(hv_mos("sg13_hv_pmos", 3.0, 0.45, "out", "selb", "in1", "vdd"), "MT1P")
+    b.add(hv_row("sg13_hv_nmos", [(1.5, 0.45, ["in0", "selb", "out", "sel", "in1"])], "vss"), "MT0N MT1N")
+    b.add(hv_row("sg13_hv_pmos", [(3.0, 0.45, ["in0", "sel", "out", "selb", "in1"])], "vdd"), "MT0P MT1P")
     b.route()
 
 
@@ -718,29 +771,26 @@ def bidir_channel():
                            lv("nand2_1", A="z_l", B="en_a", Y="net22"),
                            lv("nor2_1", A="z_l", B="en_ab", Y="net23")]), "XRB XG1 XG2 XPK XA1 XA2"),
         (schmlv("net20", "net21"), "XS2"),
-        (mos_fingers("sg13_lv_pmos", 24.0, 0.13, 4, "a_pad", "net22", L, L), "MPA"),
-        (mos_fingers("sg13_lv_nmos", 12.0, 0.13, 2, "a_pad", "net23", "vss"), "MNA"),
-        # data level shifter, 3.3 V pre-driver, 3.3 V receive path
-        (lv_mos("sg13_lv_nmos", 2.0, 0.13, "net11", "net9", "vss"), "MN1"),
-        (lv_mos("sg13_lv_nmos", 2.0, 0.13, "net13", "a_nb", "vss"), "MN2"),
-        (hv_mos("sg13_hv_nmos", 3.0, 0.45, "net10", L, "net11", "vss"), "MN3"),
-        (hv_mos("sg13_hv_nmos", 3.0, 0.45, "net12", L, "net13", "vss"), "MN4"),
-        (hv_mos("sg13_hv_nmos", 0.5, 0.45, "net12", "enb_h", "vss", "vss"), "MN5"),
-        (hv_mos("sg13_hv_pmos", 0.8, 0.8, "net10", "net12", H, H), "MP1"),
-        (hv_mos("sg13_hv_pmos", 0.8, 0.8, "net12", "net10", H, H), "MP2"),
+        (lv_chain("sg13_lv_pmos", 6.0, 0.13, fingers(4, "a_pad", "net22", L), L), "MPA"),
+        (lv_chain("sg13_lv_nmos", 6.0, 0.13, fingers(2, "a_pad", "net23", "vss")), "MNA"),
+        # data level shifter, 3.3 V pre-driver, 3.3 V receive path: the small
+        # HV devices share one ring per well
+        (lv_chain("sg13_lv_nmos", 2.0, 0.13, ["net11", "net9", "vss", "a_nb", "net13"]), "MN1 MN2"),
+        (hv_row("sg13_hv_nmos", [(3.0, 0.45, ["net11", L, "net10"]), (3.0, 0.45, ["net12", L, "net13"]),
+                                 (0.5, 0.45, ["net12", "enb_h", "vss"]), (1.0, 0.45, ["vss", "net17", "net18"]),
+                                 (0.8, 0.45, ["net20", "net19", "vss"])], "vss"), "MN3 MN4 MN5 MN7 MN9"),
+        (hv_row("sg13_hv_pmos", [(0.8, 0.8, ["net10", "net12", H, "net10", "net12"]),
+                                 (1.5, 0.45, [H, "net17", "net18"])], H), "MP1 MP2 MP6"),
         (stdcells(HV_LIB, [hv("inv_1", A="net12", Y="net14"), hv("inv_2", A="net14", Y="z_h"),
                            hv("nand2_2", A="z_h", B="en_b_h", Y="net15"),
                            hv("nor2_2", A="z_h", B="enb_b_h", Y="net16")]), "XH1 XH2 XD1 XD2"),
         (rppd(1.0, 0.5, "b_pad", "net17"), "RSER"),
-        (hv_mos("sg13_hv_nmos", 1.0, 0.45, "net18", "net17", "vss", "vss"), "MN7"),
-        (hv_mos("sg13_hv_pmos", 1.5, 0.45, "net18", "net17", H, H), "MP6"),
         (child("muxhv", {"in0": "net18", "in1": "z_h", "sel": "tm_h", "selb": "tmb_h", "out": "net19",
                          "vdd": H, "vss": "vss"}, well=H), "XM2"),
-        (hv_mos("sg13_hv_nmos", 0.8, 0.45, "net20", "net19", "vss", "vss"), "MN9"),
-        (hv_mos("sg13_hv_pmos", 1.0, 0.45, "net20", "net19", L, L), "MP8"),
+        (hv_row("sg13_hv_pmos", [(1.0, 0.45, ["net20", "net19", L])], L), "MP8"),
         # 3.3 V pad driver: one multi-finger device each
-        (mos_fingers("sg13_hv_nmos", 48.0, 0.45, 4, "b_pad", "net16", "vss", "vss"), "MND"),
-        (mos_fingers("sg13_hv_pmos", 96.0, 0.45, 8, "b_pad", "net15", H, H), "MPD"),
+        (hv_row("sg13_hv_nmos", [(12.0, 0.45, fingers(4, "b_pad", "net16", "vss"))], "vss"), "MND"),
+        (hv_row("sg13_hv_pmos", [(12.0, 0.45, fingers(8, "b_pad", "net15", H))], H), "MPD"),
     ]
     for inst, i, q, qb in (("XL2", "en", "en_h", "enb_h"), ("XL3", "tm", "tm_h", "tmb_h"),
                            ("XL1", "en_up", "en_b_h", "enb_b_h")):

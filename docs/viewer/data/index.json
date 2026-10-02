@@ -4,43 +4,37 @@
    "name": "sg13cmos5l_bidir_level_shifter",
    "width": 500.0,
    "height": 200.0,
-   "shapes": 46663
+   "shapes": 39597
   },
   {
    "name": "bidir_channel",
-   "width": 81.02,
-   "height": 93.98,
-   "shapes": 11591
+   "width": 57.89,
+   "height": 94.04,
+   "shapes": 9824
   },
   {
    "name": "divider_16",
-   "width": 81.02,
-   "height": 21.72,
-   "shapes": 3089
+   "width": 54.03,
+   "height": 24.24,
+   "shapes": 2733
   },
   {
    "name": "dff_c2mos",
-   "width": 37.87,
-   "height": 7.99,
-   "shapes": 726
+   "width": 24.38,
+   "height": 9.25,
+   "shapes": 637
   },
   {
    "name": "delay_2ns",
-   "width": 44.1,
+   "width": 35.98,
    "height": 10.86,
-   "shapes": 679
+   "shapes": 519
   },
   {
    "name": "level_shifter_up",
-   "width": 29.06,
-   "height": 7.78,
-   "shapes": 525
-  },
-  {
-   "name": "muxhv",
-   "width": 19.26,
-   "height": 10.32,
-   "shapes": 479
+   "width": 18.05,
+   "height": 7.57,
+   "shapes": 371
   },
   {
    "name": "nandhv",
@@ -49,10 +43,16 @@
    "shapes": 360
   },
   {
+   "name": "muxhv",
+   "width": 9.22,
+   "height": 9.46,
+   "shapes": 294
+  },
+  {
    "name": "muxlv",
-   "width": 11.09,
-   "height": 8.34,
-   "shapes": 229
+   "width": 8.69,
+   "height": 8.31,
+   "shapes": 187
   },
   {
    "name": "schmlv",

@@ -39,9 +39,21 @@ symbols for them, with the transistor sizes of the PDK netlist. `INVLVW`,
 routed by `build_blocks.py`: components in rows, a Metal2 stub from every pin
 up into a channel above its row, one Metal3 trunk per net and channel, and a
 Metal4 riser next to its pins for a net that spans rows. A block's pins end
-as Metal2 stubs on its top edge. It is correct by construction and checked with DRC and LVS, but
-not compact, and all wires are minimum width, including supplies and the pad
-drivers' connections.
+as Metal2 stubs on its top edge. It is correct by construction and checked with DRC and LVS. All
+wires are minimum width, including supplies and the pad drivers' connections.
+
+The script keeps transistors close together:
+
+- Devices with a common net and the same size are drawn as fingers of one
+  PCell and share that diffusion strip (`lv_chain`, `hv_row`): the latch
+  pairs in the level shifters, both halves of `MUXHV` and `MUXLV`, the MOS
+  capacitors in `delay_2ns`.
+- HV devices of one type and bulk sit in one guard ring (`hv_row`), 0.27 µm
+  from the thick oxide instead of the PCell's 1 µm.
+- Transmission gates sit in pairs in one well with one tap (`tgate_pairs`).
+- Standard cells abut in runs and share their rails.
+
+The routing channels above each row are not optimised.
 
 Build children first:
 
