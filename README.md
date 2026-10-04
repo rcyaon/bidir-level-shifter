@@ -20,6 +20,16 @@ chip. It only uses the PDK's normal 1.2 V and 3.3 V transistors.
 - **Test mode:** `tm = 1` loops the channel back on itself so it rings.
   `divider_16` slows that down by 16 so you can measure it on a normal pin.
 
+## In the Chipalooza harness
+
+The chip goes into slot 1 of the Chipalooza harness as `gds/slot_1.gds`:
+four channels, channel 0 on the slot's two analog pads, channels 1-3 on a
+shared 3.3 V bus inside the slot with their 1.2 V sides on the slot's
+digital pins. The harness talks to the slot over SPI, which is slow, so the
+speed limit is measured on chip with the test-mode ring (ring / 16 and
+ring / 256 on `dig_out`). The pin map is in
+[layout/README.md](layout/README.md#slot-top-level).
+
 ## Verification
 
 Screenshots, what each one proves, and area estimates are in
@@ -29,10 +39,11 @@ Screenshots, what each one proves, and area estimates are in
 
 ```
 xschem/logic_gates/   basic gates (INV, NAND, NOR, MUX, Schmitt, ...)
-xschem/schematics/    blocks: bidir_channel, level_shifter_up, dff_c2mos, divider_16, delay_2ns
-verification/         testbenches, screenshots, area estimate
-layout/               magic layout
-docs/                 proposal
+xschem/schematics/    blocks: bidir_channel, level_shifter_up, dff_c2mos, divider_16, delay_2ns, slot_1
+verification/         testbenches, screenshots, speed sweep, area
+layout/               layout generator, block layouts, DRC/LVS/PEX scripts
+gds/slot_1.gds        the cell for tapeout (slot 1 of the harness)
+docs/                 proposal, layout viewer
 ```
 
 To open the schematics:

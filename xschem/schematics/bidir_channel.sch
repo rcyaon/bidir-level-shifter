@@ -428,3 +428,6 @@ C {devices/lab_pin.sym} 190 2060 0 0 {name=l62 sig_type=std_logic lab=z_l}
 C {devices/iopin.sym} 560 2060 0 0 {name=p9 lab=ring_div}
 C {devices/lab_pin.sym} 300 1990 0 0 {name=l63 sig_type=std_logic lab=vddl}
 C {devices/lab_pin.sym} 300 2130 0 0 {name=l64 sig_type=std_logic lab=vss}
+T {RSER: ~200 ohm in series with the gates of the 3.3 V receiver (MP6, MN7). It limits
+the current into those gates when b_pad overshoots or takes an ESD hit. In the
+layout it sits between the pad driver and the receiver, on the pad's wide trunk.} -50 1600 0 0 0.3 0.3 {}

@@ -16,6 +16,7 @@ import gdstk
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAYOUT = os.path.join(HERE, "..", "..", "layout")
+GDS = os.path.join(HERE, "..", "..", "gds")          # the slot cell for tapeout
 
 # (layer, datatype): name, colour, fill opacity. Listed bottom to top, which
 # is also the drawing order. Colours follow the PDK's KLayout layer file.
@@ -35,17 +36,20 @@ LAYERS = [
     ((30, 0), "Metal3", "#d80000", 0.45),
     ((49, 0), "Via3", "#9ba940", 0.90),
     ((50, 0), "Metal4", "#93e837", 0.45),
+    ((125, 0), "TopVia1", "#ffe6bf", 0.90),
+    ((126, 0), "TopMetal1", "#ffe6bf", 0.25),
     ((189, 4), "PR boundary", "#c070ff", 0.0),
 ]
 # net labels and instance names; "pin:" markers are for build_blocks.py only
-TEXT_LAYERS = {(8, 25): "net", (10, 25): "net", (30, 25): "net", (50, 25): "net", (63, 0): "inst"}
+TEXT_LAYERS = {(8, 25): "net", (10, 25): "net", (30, 25): "net", (50, 25): "net", (126, 25): "net",
+               (63, 0): "inst"}
 
 
 def main():
     known = {ld for ld, _, _, _ in LAYERS}
     os.makedirs(os.path.join(HERE, "data"), exist_ok=True)
     cells = []
-    for path in sorted(glob.glob(os.path.join(LAYOUT, "*.gds"))):
+    for path in sorted(glob.glob(os.path.join(LAYOUT, "*.gds")) + glob.glob(os.path.join(GDS, "*.gds"))):
         lib = gdstk.read_gds(path)
         name = os.path.splitext(os.path.basename(path))[0]
         top = next((c for c in lib.cells if c.name == name), None)

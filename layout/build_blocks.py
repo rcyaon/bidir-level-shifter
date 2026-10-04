@@ -27,8 +27,13 @@ import pya
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TECH = "sg13cmos5l"
-PITCH = 0.41          # Metal2 stub pitch (0.20 wide, 0.21 space)
+PITCH = 0.42          # Metal2 stub pitch: 0.20 wide, 0.22 space (at 0.21 magic
+                      # merges two neighbouring Via1s into one contact)
 TRACK = 0.42          # Metal3 trunk pitch
+RAIL_W, RAIL_S = 1.0, 0.4    # Metal1 supply rails above every row
+BUS_W, BUS_S = 1.2, 0.4      # Metal2 supply buses down both sides of a block
+WIDE_W = 1.0                 # Metal2 width of a pad net's pin
+VIA_P = 0.48                 # via pitch in an array (0.19 via, 0.29 space)
 LV_LIB, HV_LIB = "sg13cmos5l_stdcell", "sg13cmos5l_stdcell_hv"
 
 layout = pya.Layout()
@@ -38,7 +43,7 @@ LY = {n: layout.layer(*ld) for n, ld in dict(
     activ=(1, 0), poly=(5, 0), cont=(6, 0), m1=(8, 0), m1pin=(8, 2),
     m1txt=(8, 25), v1=(19, 0), m2=(10, 0), v2=(29, 0), m3=(30, 0),
     m3pin=(30, 2), m3txt=(30, 25), v3=(49, 0), m4=(50, 0), nwell=(31, 0),
-    tgo=(44, 0), text=(63, 0)).items()}
+    tgo=(44, 0), tv1=(125, 0), tm1=(126, 0), text=(63, 0)).items()}
 
 
 def fail(msg):
@@ -125,8 +130,9 @@ class Comp:
 
     A port is (net, via_x, via_y, stub_x, kind): kind "v1" gets a Via1 with
     its Metal1 pad at the via point, kind "m2" is Metal2 already (a child
-    block's pin on its top edge). stub_x differs from via_x when the stub is
-    jogged sideways on Metal2 to keep the stub pitch.
+    block's pin on its top edge), "m2w" is a child's WIDE_W wide pad pin and
+    "bus" the top end of one of a child's supply buses. stub_x differs from
+    via_x when the stub is jogged sideways on Metal2 to keep the stub pitch.
     """
 
     def __init__(self, well=None):
@@ -211,6 +217,11 @@ def stdcells(lib_name, cells):
             c.port(nets[pin], x + vx, vy, x + sx)
         c.inst(ci, x, 0.0)
         x += width
+    if lib_name == HV_LIB:
+        # the HV cells' n-well ends 0.24 past their tap; magic wants 0.62 (NW.e1)
+        nw = lambda name: pya.DBox(pya.Region(lib_ly.cell(name).shapes(lib_ly.layer(31, 0))).bbox()) * layout.dbu
+        first, last = nw(cells[0][0]), nw(cells[-1][0])
+        c.box("nwell", first.left, first.top - 0.5, x - width + last.right, first.top + 0.38)
     for pin, vx in (("VDD", -0.30), ("VSS", x + 0.30)):
         y1, y2, net = rails[pin]
         c.box("m1", -0.5, y1, 0.0, y2)
@@ -236,24 +247,37 @@ def child(name, nets, well="*"):
     top = layout.cell(ci).dbbox().top
     c.has_m4 = not pya.Region(layout.cell(ci).begin_shapes_rec(LY["m4"])).is_empty()
     for s in layout.cell(ci).shapes(LY["text"]).each():
-        if s.is_text() and s.text.string.startswith("pin:"):
-            pin = s.text.string[4:]
-            c.port(nets[pin], s.text.x * layout.dbu, top, kind="m2")
+        if not s.is_text() or ":" not in s.text.string:
+            continue
+        kind, pin = s.text.string.split(":", 1)
+        if kind in ("pin", "wpin", "bus"):
+            c.port(nets[pin], s.text.x * layout.dbu, top, kind={"pin": "m2", "wpin": "m2w", "bus": "bus"}[kind])
     return c
 
 
-def gate_contact(c, gx1, gx2, y_poly, up, net=None):
-    """Poly pad, contact and Metal1 pad on a gate; returns the via point."""
+def gate_contact(c, gx1, gx2, y_poly, up, net=None, via_x=None):
+    """Poly pad with as many contacts as fit across gx1..gx2, under one
+    Metal1 strip; returns the via point (the pad's centre, or `via_x`)."""
     gc = r5((gx1 + gx2) / 2)
     half = max(0.15, (gx2 - gx1) / 2)
     s = 1 if up else -1
     c.box("poly", gc - half, y_poly, gc + half, y_poly + s * 0.33)
     cy = r5(y_poly + s * 0.18)
-    c.box("cont", gc - 0.08, cy - 0.08, gc + 0.08, cy + 0.08)
-    c.box("m1", gc - 0.15, cy - 0.16, gc + 0.15, cy + 0.16)
+    n = max(1, int((2 * half - 0.14 + 0.18) / 0.34 + 1e-6))
+    if n == 1:
+        c.box("cont", gc - 0.08, cy - 0.08, gc + 0.08, cy + 0.08)
+        c.box("m1", gc - 0.15, cy - 0.16, gc + 0.15, cy + 0.16)
+    else:
+        x0 = r5(gc - (n - 1) * 0.17)
+        for k in range(n):
+            x = r5(x0 + k * 0.34)
+            c.box("cont", x - 0.08, cy - 0.08, x + 0.08, cy + 0.08)
+        # 0.26 tall: a strip of 0.3 or more would need the wide-metal spacing
+        c.box("m1", x0 - 0.15, cy - 0.13, r5(x0 + (n - 1) * 0.34) + 0.15, cy + 0.13)
+    vx = gc if via_x is None else via_x
     if net:
-        c.port(net, gc, cy)
-    return gc, cy
+        c.port(net, vx, cy)
+    return vx, cy
 
 
 def chain_cell(model, w, l, nets):
@@ -292,8 +316,9 @@ def gates_above(c, terms, polys, nets, x=0.0, y=0.0):
 
     A gate of 0.45 um or longer has room for its own contact. Short gates
     are too close to the source/drain stubs for that: with one net they are
-    joined by a poly bar with a contact at its left end, and two gates on
-    different nets get a bar each, one to the left and one to the right.
+    joined by a poly bar with a row of contacts along it and the via at its
+    left end, and two gates on different nets get a bar each, one to the left
+    and one to the right.
     """
     top = y + polys[0].top
     if polys[0].width() >= 0.44:
@@ -303,15 +328,12 @@ def gates_above(c, terms, polys, nets, x=0.0, y=0.0):
     bar = r5(top - 0.03)
     x0, x1 = r5(x + terms[0].left - 0.50), r5(x + terms[-1].right + 0.50)
     if len(set(nets)) == 1:
-        c.box("poly", x0, bar, x + polys[-1].right, bar + 0.16)
-        gate_contact(c, x0, x0 + 0.30, bar, True, nets[0])
+        gate_contact(c, x0, r5(x + polys[-1].right), bar, True, nets[0], via_x=r5(x0 + 0.15))
         return x + terms[-1].right
     if len(nets) != 2:
         fail("more than two short gates on different nets in one chain")
-    c.box("poly", x0, bar, x + polys[0].right, bar + 0.16)
-    gate_contact(c, x0, x0 + 0.30, bar, True, nets[0])
-    c.box("poly", x + polys[1].left, bar, x1, bar + 0.16)
-    gate_contact(c, x1 - 0.30, x1, bar, True, nets[1])
+    gate_contact(c, x0, r5(x + polys[0].right), bar, True, nets[0], via_x=r5(x0 + 0.15))
+    gate_contact(c, r5(x + polys[1].left), x1, bar, True, nets[1], via_x=r5(x1 - 0.15))
     return x1
 
 
@@ -359,8 +381,15 @@ def hv_row(model, devs, bulk):
         y1 = r5(min(0.145, w / 2))
         for i, t in enumerate(terms):
             c.port(nets[2 * i], r5(x + t.center().x), y1, top=w - 0.145)
-        for p, net in zip(polys, nets[1::2]):
-            gate_contact(c, x + p.left, x + p.right, p.top, True, net)
+        # neighbouring gates on one net share a poly bar and its contact row
+        gates, k = nets[1::2], 0
+        while k < len(polys):
+            j = k
+            while j + 1 < len(polys) and gates[j + 1] == gates[k]:
+                j += 1
+            gate_contact(c, x + polys[k].left, x + polys[j].right, polys[k].top, True, gates[k],
+                         via_x=r5(x + polys[k].center().x))
+            k = j + 1
         for b in boxes(ci, "tgo"):
             tgo += b.moved(x, 0.0)
         x = r5(x + terms[-1].right + 0.07 + 0.21)
@@ -462,13 +491,18 @@ def rppd(w, l, a, b):
 # ------------------------------------------------------------------ router --
 
 class Block:
-    def __init__(self, name, pins, children=()):
+    def __init__(self, name, pins, supplies=(), wide=(), ring=None, children=()):
+        """`supplies` are routed on Metal1 rails and Metal2 buses instead of
+        trunks; `wide` nets (pads) get a three-track trunk and a WIDE_W pin;
+        `ring` is the supply a p-substrate guard ring around the block ties to.
+        """
         # Read child layouts before anything else is created: their standard
         # cells come back as library proxies and are then shared, instead of
         # clashing by name with proxies made here first.
         for c in children:
             gds_cell(c)
         self.name, self.pins = name, pins
+        self.supplies, self.wide, self.ring = list(supplies), set(wide), ring
         self.top = None
         self.rows = []
         self.new_row()
@@ -493,13 +527,21 @@ class Block:
                 self.end_row()
             self.add(comp, label)
 
+    def stub_xs(self, port, dx=0.0):
+        """x positions a port's Metal2 stub keeps the stub pitch from: a wide
+        stub counts as three, so no thin stub fits beside it too closely."""
+        net, _, _, sx, kind = port
+        w = BUS_W if kind == "bus" else WIDE_W if kind == "m2w" and net in self.wide else 0.0
+        x = sx + dx
+        return [x] if not w else [x - (w / 2 - 0.05), x, x + (w / 2 - 0.05)]
+
     def add(self, comp, label=None):
         row = self.row
         gap = self.gap(self.prev, comp) if row["comps"] else 0.0
         dx = r5(self.x + gap - comp.bbox.left)
         dy = r5(-comp.bbox.bottom)
-        taken = [p[3] for p in row["ports"]]
-        while any(abs(dx + p[3] - t) < PITCH - 1e-6 for p in comp.ports for t in taken):
+        taken = [x for p in row["ports"] for x in self.stub_xs(p)]
+        while any(abs(x - t) < PITCH - 1e-6 for p in comp.ports for x in self.stub_xs(p, dx) for t in taken):
             dx = r5(dx + 0.005)
         row["comps"].append((comp, dx, dy, label))
         for net, vx, vy, sx, kind in comp.ports:
@@ -524,28 +566,49 @@ class Block:
     def via(self, layer, x, y):
         self.rect(layer, x - 0.095, y - 0.095, x + 0.095, y + 0.095)
 
+    def via_array(self, layer, x1, y1, x2, y2):
+        """As many vias as fit in the box, 0.05 inside it."""
+        nx = max(1, int((x2 - x1 - 0.29) / VIA_P + 1e-6) + 1)
+        ny = max(1, int((y2 - y1 - 0.29) / VIA_P + 1e-6) + 1)
+        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+        for i in range(nx):
+            for j in range(ny):
+                self.via(layer, r5(cx + (i - (nx - 1) / 2) * VIA_P), r5(cy + (j - (ny - 1) / 2) * VIA_P))
+
     @staticmethod
-    def free_x(want, taken, blocked=(), lo=0.0):
-        """Nearest x to `want` that keeps the pitch to `taken` and avoids `blocked`."""
+    def free_x(want, taken, blocked=(), lo=0.0, clear=PITCH):
+        """Nearest x to `want` that keeps `clear` to `taken` and avoids `blocked`."""
         for k in range(0, 100000):
             for x in (r5(want + k * 0.05), r5(want - k * 0.05)):
-                if x >= lo and all(abs(x - t) >= PITCH - 1e-6 for t in taken) and \
+                if x >= lo and all(abs(x - t) >= clear - 1e-6 for t in taken) and \
                         not any(a <= x <= b for a, b in blocked):
                     return x
         fail("no free column")
 
-    def route(self, dry=False):
-        """Route and write the block. With `dry`, only return (width, height)."""
+    def route(self, dry=False, write=True):
+        """Route the block. With `dry`, only return (width, height); with
+        `write` False, keep the cell in `layout` without writing a file.
+
+        Supplies don't use the trunks: above every row each supply gets a
+        RAIL_W Metal1 rail across the whole block, its pins reach it on short
+        Metal2 stubs with two vias, and the rails of one supply are joined by
+        a BUS_W Metal2 bus down each side of the block, which also leaves the
+        block at its top edge.
+        """
         self.end_row()
         rows, last = self.rows, len(self.rows) - 1
-        in_rows = {}                                # net -> rows it has pins in
+        sup = self.supplies
+        in_rows = {}                                # signal net -> rows it has pins in
         for r, row in enumerate(rows):
             for p in row["ports"]:
-                in_rows.setdefault(p[0], set()).add(r)
-        missing = [p for p in self.pins if p not in in_rows]
+                if p[0] not in sup:
+                    in_rows.setdefault(p[0], set()).add(r)
+        have = {p[0] for row in rows for p in row["ports"]}
+        missing = [p for p in self.pins if p not in have]
         if missing:
             fail(f"{self.name}: pins with no connection: {missing}")
-        for net in self.pins:                       # pins leave through the top channel
+        signals = [p for p in self.pins if p not in sup]
+        for net in signals:                         # pins leave through the top channel
             in_rows[net].add(last)
 
         # Metal4 risers for nets in more than one row, as close to their pins
@@ -554,24 +617,30 @@ class Block:
         for net in sorted(in_rows, key=lambda n: (-len(in_rows[n]), n)):
             if len(in_rows[net]) < 2:
                 continue
+            if net in self.wide:
+                fail(f"{self.name}: wide net {net} has pins in more than one row")
             xs = sorted(p[3] for row in rows for p in row["ports"] if p[0] == net)
             crossed = range(min(in_rows[net]) + 1, max(in_rows[net]) + 1)
             blocked = [b for r in crossed for b in rows[r]["blocked"]]
             riser[net] = self.free_x(xs[len(xs) // 2], taken, blocked)
             taken.append(riser[net])
         # Metal2 stubs that take the block's pins from the top channel to its top edge
-        export, taken = {}, [p[3] for p in rows[last]["ports"]]
-        for net in self.pins:
+        export, taken = {}, [x for p in rows[last]["ports"] for x in self.stub_xs(p)]
+        for net in sorted(signals, key=lambda n: n not in self.wide):
             xs = sorted(p[3] for p in rows[last]["ports"] if p[0] == net) or [riser[net]]
-            export[net] = self.free_x(xs[len(xs) // 2], taken)
-            taken.append(export[net])
+            wide = net in self.wide
+            export[net] = self.free_x(xs[len(xs) // 2], taken, lo=0.6 if wide else 0.0,
+                                      clear=WIDE_W / 2 + 0.36 if wide else PITCH)
+            taken += [export[net]] + ([export[net] - 0.45, export[net] + 0.45] if wide else [])
 
-        # left-edge track assignment per channel, then the row positions
+        # left-edge track assignment per channel, then the row positions;
+        # a wide net gets three tracks of its own above the others
         track = []                                  # per row: {net: (track, lo, hi)}
         for r, row in enumerate(rows):
             spans = {}
             for net, vx, vy, sx, kind in row["ports"]:
-                spans.setdefault(net, []).append(sx)
+                if net not in sup:
+                    spans.setdefault(net, []).append(sx)
             for net in in_rows:
                 if r in in_rows[net]:
                     if net in riser:
@@ -579,9 +648,14 @@ class Block:
                     if r == last and net in export:
                         spans.setdefault(net, []).append(export[net])
             used, assigned = [], {}
-            for net in sorted(spans, key=lambda n: min(spans[n])):
+            for net in sorted(spans, key=lambda n: (n in self.wide, min(spans[n]))):
                 lo, hi = min(spans[net]), max(spans[net])
                 hi = max(hi, lo + 0.75 - 0.29)      # minimum Metal3 area
+                if net in self.wide:
+                    k = len(used)
+                    used += [1e9] * 3
+                    assigned[net] = (k, lo - 0.4, hi + 0.4)
+                    continue
                 for k, right in enumerate(used):
                     if lo - right >= 0.29 + 0.25:
                         break
@@ -591,18 +665,28 @@ class Block:
                 used[k] = hi
                 assigned[net] = (k, lo, hi)
             track.append(assigned)
+        rails_h = (0.5 + len(sup) * RAIL_W + (len(sup) - 1) * RAIL_S + 0.5) if sup else 0.0
         y_row, y_chan, y = [], [], 0.0
         for r, row in enumerate(rows):
             y_row.append(y)
             y_chan.append(r5(y + row["top"] + 0.60))
-            n = 1 + max(k for k, _, _ in track[r].values())
+            n = max([1] + [k + (3 if net in self.wide else 1) for net, (k, _, _) in track[r].items()])
             # 1.9 um at least, for wells on different nets in neighbouring rows
-            y = r5(max(y_chan[r] + (n - 1) * TRACK + 0.10 + 0.60, y_row[r] + row["top"] + 1.9))
-        block_top = r5(y + 0.20)
+            y = r5(max(y_chan[r] + (n - 1) * TRACK + 0.10 + 0.60, y_row[r] + row["top"] + 1.9,
+                       y_row[r] + row["top"] + rails_h))
+        rail_y = lambda r, k: r5(y_row[r] + rows[r]["top"] + 0.5 + k * (RAIL_W + RAIL_S) + RAIL_W / 2)
+        ring_m = 2.0 if self.ring else 0.0          # room for the guard ring
+        block_top = r5(y + 0.20 + ring_m)
+        right = r5(max([c[0].bbox.right + c[1] for row in rows for c in row["comps"]] +
+                       list(riser.values()) + [x + (0.5 if n in self.wide else 0) for n, x in export.items()]) + 0.3)
+        bus_x = {}                                  # supply -> (left bus x, right bus x)
+        for k, net in enumerate(sup):
+            d = r5(0.6 + BUS_W / 2 + k * (BUS_W + BUS_S))
+            bus_x[net] = (-d, r5(right + d))
+        x_lo = -(0.6 + len(sup) * BUS_W + (len(sup) - 1) * BUS_S) if sup else 0.0
+        x_hi = right - x_lo if sup else right
         if dry:
-            right = max([c[0].bbox.right + c[1] for row in rows for c in row["comps"]] +
-                        list(riser.values()) + list(export.values()))
-            return right + 0.3, block_top
+            return x_hi - x_lo + 2 * ring_m, block_top
         self.top = layout.create_cell(self.name)
 
         for r, row in enumerate(rows):
@@ -619,9 +703,31 @@ class Block:
             for vx, vy in row["vias"]:
                 self.via("v1", vx, y0 + vy)
                 self.rect("m1", vx - 0.105, y0 + vy - 0.145, vx + 0.105, y0 + vy + 0.145)
+            # supply rails, and every supply pin of the row up to its rail
+            for k, net in enumerate(sup):
+                ry = rail_y(r, k)
+                self.rect("m1", x_lo, ry - RAIL_W / 2, x_hi, ry + RAIL_W / 2)
+                for pnet, vx, vy, sx, kind in row["ports"]:
+                    if pnet != net:
+                        continue
+                    vy = r5(y0 + vy)
+                    if kind == "bus":
+                        self.rect("m2", sx - BUS_W / 2, vy - 0.3, sx + BUS_W / 2, ry + RAIL_W / 2)
+                        self.via_array("v1", sx - BUS_W / 2, ry - RAIL_W / 2, sx + BUS_W / 2, ry + RAIL_W / 2)
+                        continue
+                    if kind == "v1":
+                        self.via("v1", vx, vy)
+                        self.rect("m1", vx - 0.105, vy - 0.145, vx + 0.105, vy + 0.145)
+                        if abs(sx - vx) > 1e-6:
+                            self.rect("m2", min(vx, sx) - 0.145, vy - 0.10,
+                                      max(vx, sx) + 0.145, vy + 0.10)
+                    self.rect("m2", sx - 0.10, vy - 0.145, sx + 0.10, ry + 0.24 + 0.145)
+                    for d in (-0.24, 0.24):
+                        self.via("v1", sx, ry + d)
             for net, (k, lo, hi) in track[r].items():
                 ty = r5(y_chan[r] + k * TRACK)
-                self.rect("m3", lo - 0.145, ty - 0.10, hi + 0.145, ty + 0.10)
+                wide = net in self.wide
+                self.rect("m3", lo - 0.145, ty - 0.10, hi + 0.145, ty + (2 * TRACK if wide else 0) + 0.10)
                 for pnet, vx, vy, sx, kind in row["ports"]:
                     if pnet != net:
                         continue
@@ -632,8 +738,13 @@ class Block:
                         if abs(sx - vx) > 1e-6:
                             self.rect("m2", min(vx, sx) - 0.145, vy - 0.10,
                                       max(vx, sx) + 0.145, vy + 0.10)
-                    self.rect("m2", sx - 0.10, vy - 0.145, sx + 0.10, ty + 0.145)
-                    self.via("v2", sx, ty)
+                    if kind == "m2w" and wide:
+                        self.rect("m2", sx - WIDE_W / 2, vy - 0.3, sx + WIDE_W / 2, ty + 2 * TRACK + 0.10)
+                        self.via_array("v2", sx - WIDE_W / 2, ty - 0.10, sx + WIDE_W / 2, ty + 2 * TRACK + 0.10)
+                        continue
+                    self.rect("m2", sx - 0.10, vy - 0.145, sx + 0.10, ty + (2 * TRACK if wide else 0) + 0.145)
+                    for j in range(3 if wide else 1):
+                        self.via("v2", sx, ty + j * TRACK)
         ty_of = lambda net, r: r5(y_chan[r] + track[r][net][0] * TRACK)
         for net, x in riser.items():
             ys = [ty_of(net, r) for r in sorted(in_rows[net])]
@@ -642,20 +753,54 @@ class Block:
                 self.via("v3", x, ty)
         for net, x in export.items():
             ty = ty_of(net, last)
-            self.rect("m2", x - 0.10, ty - 0.145, x + 0.10, block_top)
-            self.via("v2", x, ty)
+            if net in self.wide:
+                self.rect("m2", x - WIDE_W / 2, ty - 0.10, x + WIDE_W / 2, block_top)
+                self.via_array("v2", x - WIDE_W / 2, ty - 0.10, x + WIDE_W / 2, ty + 2 * TRACK + 0.10)
+                tag = "wpin:"
+            else:
+                self.rect("m2", x - 0.10, ty - 0.145, x + 0.10, block_top)
+                self.via("v2", x, ty)
+                tag = "pin:"
             # pin marker for the parent, and a label for LVS
-            self.top.shapes(LY["text"]).insert(pya.DText("pin:" + net, x, block_top - 0.1))
+            self.top.shapes(LY["text"]).insert(pya.DText(tag + net, x, block_top - 0.1))
             self.rect("m3pin", x - 0.065, ty - 0.065, x + 0.065, ty + 0.065)
             self.top.shapes(LY["m3txt"]).insert(pya.DText(net, x, ty))
+        # supply buses down both sides, joined to every rail of their supply
+        for k, net in enumerate(sup):
+            for x in bus_x[net]:
+                self.rect("m2", x - BUS_W / 2, rail_y(0, k) - RAIL_W / 2, x + BUS_W / 2, block_top)
+                for r in range(len(rows)):
+                    ry = rail_y(r, k)
+                    self.via_array("v1", x - BUS_W / 2, ry - RAIL_W / 2, x + BUS_W / 2, ry + RAIL_W / 2)
+                self.top.shapes(LY["text"]).insert(pya.DText("bus:" + net, x, block_top - 0.1))
+            ry = rail_y(last, k)
+            self.rect("m1pin", x_lo + 0.2, ry - 0.2, x_lo + 0.6, ry + 0.2)
+            self.top.shapes(LY["m1txt"]).insert(pya.DText(net, x_lo + 0.4, ry))
+        if self.ring:
+            # p-substrate guard ring around everything, tied to the ring
+            # supply's rails, which run out to it on both sides
+            x1, y1 = r5(x_lo - ring_m + 0.3), -ring_m + 0.3
+            x2, y2 = r5(x_hi + ring_m - 0.3), r5(y + ring_m - 0.6)
+            rw, rh = [round((b - a) / 0.01 + 0.499) * 0.01 for a, b in ((x1, x2), (y1, y2))]
+            ring = pcell("guard_ring", type="psub", w=f"{rw:.2f}u", h=f"{rh:.2f}u")
+            self.top.insert(pya.DCellInstArray(ring, pya.DTrans(pya.DVector(r5(x1 + rw / 2), r5(y1 + rh / 2)))))
+            k = sup.index(self.ring)
+            for r in range(len(rows)):
+                ry = rail_y(r, k)
+                self.rect("m1", x1 + 0.05, ry - RAIL_W / 2, x_lo, ry + RAIL_W / 2)
+                self.rect("m1", x_hi, ry - RAIL_W / 2, r5(x1 + rw) - 0.05, ry + RAIL_W / 2)
         merge_duplicate_proxies()
-        out = os.path.join(HERE, self.name + ".gds")
-        layout.write(out)
         box = self.top.dbbox()
         m3 = sum((hi - lo) for t in track for _, lo, hi in t.values())
-        print(f"build_blocks: wrote {out}: {box.width():.1f} x {box.height():.1f} um, "
-              f"{sum(len(row['ports']) for row in rows)} pin connections, "
-              f"{sum(len(t) for t in track)} trunks ({m3:.0f} um of Metal3), {len(riser)} risers")
+        msg = (f"{box.width():.1f} x {box.height():.1f} um, "
+               f"{sum(len(row['ports']) for row in rows)} pin connections, "
+               f"{sum(len(t) for t in track)} trunks ({m3:.0f} um of Metal3), {len(riser)} risers")
+        if not write:
+            print(f"build_blocks: {self.name}: {msg}")
+            return self.top
+        out = os.path.join(HERE, self.name + ".gds")
+        layout.write(out)
+        print(f"build_blocks: wrote {out}: {msg}")
 
 
 # ------------------------------------------------------------------ blocks --
@@ -670,7 +815,7 @@ def invlvw(a, y):
 
 
 def dff_c2mos():
-    b = Block("dff_c2mos", ["d", "clk", "q", "qb", "vdd", "vss"], children=["invlvw"])
+    b = Block("dff_c2mos", ["d", "clk", "q", "qb", "vdd", "vss"], ["vdd", "vss"], children=["invlvw"])
     # each latch's two transmission gates meet on its storage node
     b.add(tgate_pairs([((0.6, 1.2, "d", "net1", "clkb", "clki"), (0.3, 0.6, "net1", "net4", "clki", "clkb")),
                        ((0.6, 1.2, "net2", "net3", "clki", "clkb"), (0.3, 0.6, "net3", "net5", "clkb", "clki"))],
@@ -683,7 +828,7 @@ def dff_c2mos():
 
 
 def level_shifter_up():
-    b = Block("level_shifter_up", ["in", "q_h", "qb_h", "vddl", "vddh", "vss"])
+    b = Block("level_shifter_up", ["in", "q_h", "qb_h", "vddl", "vddh", "vss"], ["vddl", "vddh", "vss"])
     b.add(stdcells(LV_LIB, [inv("in", "net3", "vddl")]), "XI")
     b.add(lv_chain("sg13_lv_nmos", 1.0, 0.13, ["net1", "in", "vss", "net3", "net2"]), "MN1 MN2")
     b.add(hv_row("sg13_hv_nmos", [(1.5, 0.45, ["net1", "vddl", "qb_h"]),
@@ -693,7 +838,7 @@ def level_shifter_up():
 
 
 def divider_16():
-    b = Block("divider_16", ["in", "out", "vdd", "vss"], children=["dff_c2mos"])
+    b = Block("divider_16", ["in", "out", "vdd", "vss"], ["vdd", "vss"], children=["dff_c2mos"])
     b.add(stdcells(LV_LIB, [inv("in", "net1"), inv("net1", "net2")]), "XB1 XB2")
     clk = "net2"
     per_row = int(globals().get("per_row", 2))      # -rd per_row=1|2|4
@@ -707,7 +852,7 @@ def divider_16():
 
 
 def delay_2ns():
-    b = Block("delay_2ns", ["a", "y", "vdd", "vss"])
+    b = Block("delay_2ns", ["a", "y", "vdd", "vss"], ["vdd", "vss"])
     nets = ["a", "net1", "net2", "net3", "y"]
     # MOS capacitors: gate on the node, source/drain on vss, so neighbours share a strip.
     # The inverters go on both sides of them: their substrate ties are the capacitors' too.
@@ -719,7 +864,7 @@ def delay_2ns():
 
 
 def muxlv():
-    b = Block("muxlv", ["in0", "in1", "sel", "out", "vdd", "vss"])
+    b = Block("muxlv", ["in0", "in1", "sel", "out", "vdd", "vss"], ["vdd", "vss"])
     b.add(stdcells(LV_LIB, [inv("sel", "net1")]), "XI")
     b.add(tgate_pairs([((1.0, 2.0, "in0", "out", "net1", "sel"), (1.0, 2.0, "out", "in1", "sel", "net1"))],
                       "vdd"), "MT0 MT1")
@@ -727,7 +872,7 @@ def muxlv():
 
 
 def muxhv():
-    b = Block("muxhv", ["in0", "in1", "sel", "selb", "out", "vdd", "vss"])
+    b = Block("muxhv", ["in0", "in1", "sel", "selb", "out", "vdd", "vss"], ["vdd", "vss"])
     b.add(hv_row("sg13_hv_nmos", [(1.5, 0.45, ["in0", "selb", "out", "sel", "in1"])], "vss"), "MT0N MT1N")
     b.add(hv_row("sg13_hv_pmos", [(3.0, 0.45, ["in0", "sel", "out", "selb", "in1"])], "vdd"), "MT0P MT1P")
     b.route()
@@ -796,136 +941,200 @@ def bidir_channel():
                            ("XL1", "en_up", "en_b_h", "enb_b_h")):
         items.append((child("level_shifter_up",
                             {"in": i, "q_h": q, "qb_h": qb, "vddl": L, "vddh": H, "vss": "vss"}), inst))
-    # try a range of row widths and keep the smallest bounding box
+    # Everything on a pad goes in the top row, next to the pins and in this
+    # order: the 1.2 V receiver and driver, then the 3.3 V pre-driver, driver,
+    # the 200 ohm series resistor and the 3.3 V receiver it protects. The pad
+    # nets then stay in one channel and get wide trunks. The rest is packed
+    # below at the row width that gives the smallest block.
+    top_row = ["XRX", "MNA", "MPA", "XH1 XH2 XD1 XD2", "MPD", "MND", "RSER", "MN3 MN4 MN5 MN7 MN9",
+               "MP1 MP2 MP6", "XM2", "MP8"]
+    rest = [it for it in items if it[1] not in top_row]
+    by_label = {it[1]: it[0] for it in items}
+
+    def build(width):
+        b = Block("bidir_channel", pins, [L, H, "vss"], wide=["a_pad", "b_pad"], ring="vss")
+        b.pack(rest, width)
+        b.end_row()
+        for label in top_row:
+            b.add(by_label[label], label)
+        return b
+
     best = None
     for width in range(40, 131, 2):
-        b = Block("bidir_channel", pins)
-        b.pack(items, width)
-        w, h = b.route(dry=True)
+        w, h = build(width).route(dry=True)
         if best is None or w * h < best[0]:
             best = (w * h, width)
     print(f"build_blocks: row width {best[1]} um gives the smallest area")
-    b = Block("bidir_channel", pins)
-    b.pack(items, best[1])
-    b.route()
+    build(best[1]).route()
 
 
 # ---------------------------------------------------------------- slot top --
 
-TOP = "sg13cmos5l_bidir_level_shifter"
-TEMPLATE = os.path.join(HERE, "floorplan", "chipalooza_template_small_analog.gds")
-# Which template pin each channel pin goes to. Channel 0 is the one on pads.
-CHANNELS = [
-    # (x of the channel's left edge, {channel pin: template pin or None})
-    (413.47, dict(a_pad="analog_0", b_pad="analog_1", dir="ui_in[0]", ring_div="uo_out[0]")),
-    (122.0, dict(a_pad=None, b_pad=None, dir="ui_in[1]", ring_div="uo_out[1]")),
-    (207.0, dict(a_pad=None, b_pad=None, dir="ui_in[2]", ring_div="uo_out[2]")),
-    (292.0, dict(a_pad=None, b_pad=None, dir="ui_in[3]", ring_div="uo_out[3]")),
-]
-SHARED = dict(oe_n="ui_in[4]", en="ui_in[5]", tm="ui_in[6]", vddl="VPWR", vddh="VAPWR", vss="VGND")
+TOP = "slot_1"
+WRAPPER = os.path.join(HERE, "floorplan", "slot1_wrapper.gds")
+# Chipalooza slot 1 (github.com/RTimothyEdwards/sg13cmos5l_ocd_chipalooza,
+# gds/slot1_wrapper.gds). The netlist is xschem/schematics/slot_1.sch.
+VL, VH, VS = "vdd_1v2", "vdd_3v3", "vss_1v2"
+# channel: (a_pad, b_pad); channels 1-3 share a 3.3 V bus, channel 0 is on the pads
+PADS = {0: ("s1_an[0]", "s1_an[1]"), 1: ("a1", "b_bus"), 2: ("a2", "b_bus"), 3: ("a3", "b_bus")}
+
+
+def slot_core():
+    """The four channels and their interface logic, routed like any block.
+
+    Bottom row: per channel a second divide-by-16 and, for channels 1-3, the
+    gates that let dig_in drive their 1.2 V side. Top row: the channels,
+    channel 0 at the east end next to the analog pads.
+    """
+    pins = ([f"dig_in[{i}]" for i in range(12)] + [f"dig_out[{i}]" for i in range(12)] +
+            ["enable", "s1_an[0]", "s1_an[1]", VL, VH, VS])
+    b = Block("slot_core", pins, [VL, VH, VS], wide=["s1_an[0]", "s1_an[1]", "b_bus"],
+              children=["bidir_channel", "divider_16"])
+
+    def lv(name, **pins):
+        return ("sg13cmos5l_" + name, dict(pins, VDD=VL, VSS=VS))
+
+    for k in (1, 2, 3, 0):
+        b.add(child("divider_16", {"in": f"dig_out[{k}]", "out": f"dig_out[{4 + k}]", "vdd": VL, "vss": VS},
+                    well=VL), f"XDV{k}")
+        if k:
+            a = PADS[k][0]
+            b.add(stdcells(LV_LIB, [lv("or2_1", A=f"dig_in[{k}]", B=f"dig_in[{4 + k}]", X=f"teb{k}"),
+                                    lv("ebufn_2", A=f"dig_in[{8 + k}]", TE_B=f"teb{k}", Z=a),
+                                    lv("buf_1", A=a, X=f"dig_out[{7 + k}]")]), f"XTE{k} XDR{k} XRB{k}")
+        else:
+            b.add(stdcells(LV_LIB, [lv("buf_1", A="enable", X="dig_out[11]")]), "XEN")
+    b.end_row()
+    for k in (1, 2, 3, 0):
+        a, p = PADS[k]
+        b.add(child("bidir_channel", {"a_pad": a, "b_pad": p, "dir": f"dig_in[{k}]", "oe_n": "dig_in[8]",
+                                      "en": "enable", "tm": f"dig_in[{4 + k}]", "ring_div": f"dig_out[{k}]",
+                                      "vddl": VL, "vddh": VH, "vss": VS}), f"XCH{k}")
+    return b.route(write=False)
 
 
 def slot_top():
-    """Four channels inside the Chipalooza `small` analog slot.
+    """slot_core inside the slot 1 wrapper, wired to the wrapper's pins.
 
-    The template's shapes are kept as they are: Metal3 signal pins on the
-    west edge, Metal2 analog pins on the south edge, Metal4 power straps from
-    bottom to top, and the PR boundary. The channels sit clear of the straps
-    and of the west edge, upside down, so their pins face a routing channel
-    along the south edge:
-      - signals: Metal3 trunks to a Metal2 column next to the west edge, and
-        from there to their pin,
-      - supplies: 1 um Metal3 trunks under the straps, joined to them by Via3,
-      - channel 0's pads: Metal2 straight down to the analog pins.
+    The wrapper's shapes are kept as they are: Metal3 signal pins on the west
+    edge, TopMetal1 supply pins on the west edge, the two analog pads on
+    Metal3 at the east edge, and the PR boundary. Above the core:
+      - signals: one Metal3 trunk each, west to a Metal2 column by the west
+        edge, down to the pin's height and a Metal3 stub into the pin,
+      - supplies: 4 um Metal3 straps joined to both ends of every core
+        supply bus, a 4 um Metal4 riser by the west edge down to the
+        supply's TopMetal1 pin, and a TopVia1 array into it,
+      - the analog pads: 3 um Metal3 east and a 3 um Metal4 riser to the pad.
     """
-    ci = gds_cell("bidir_channel")
-    chan = layout.cell(ci)
-    height = chan.dbbox().height()
-    pin_x = {s.text.string[4:]: s.text.x * layout.dbu
-             for s in chan.shapes(LY["text"]).each() if s.is_text() and s.text.string.startswith("pin:")}
-
-    tpl = pya.Layout()
-    tpl.read(TEMPLATE)
-    src = tpl.top_cell()
+    core = slot_core()
+    wrap = pya.Layout()
+    wrap.read(WRAPPER)
+    src = wrap.top_cell()
     top = layout.create_cell(TOP)
-    pins, straps, labels = {}, {}, []
-    for li in tpl.layer_indexes():
-        info = tpl.get_info(li)
+    pins = {}                                   # pin name -> its pin-layer box
+    texts = []
+    for li in wrap.layer_indexes():
+        info = wrap.get_info(li)
         dst = layout.layer(info.layer, info.datatype)
         for sh in src.shapes(li).each():
             top.shapes(dst).insert(sh)
             if sh.is_text():
-                pins[sh.text.string] = (sh.text.x * tpl.dbu, sh.text.y * tpl.dbu)
-                labels.append((sh.text.string, pya.DPoint(sh.text.x * tpl.dbu, sh.text.y * tpl.dbu)))
-    for li in tpl.layer_indexes():
-        if (tpl.get_info(li).layer, tpl.get_info(li).datatype) == (50, 0):
-            for sh in src.shapes(li).each():
-                b = sh.dbbox()
-                name = [n for n, pt in labels if b.contains(pt)][0]
-                straps.setdefault(name, []).append(b)
+                texts.append((sh.text.string, pya.DPoint(sh.text.x, sh.text.y) * wrap.dbu))
+    for li in wrap.layer_indexes():
+        info = wrap.get_info(li)
+        if info.datatype != 2:
+            continue
+        for sh in src.shapes(li).each():
+            b = sh.dbbox()
+            for name, pt in texts:
+                if b.contains(pt) and name not in pins:
+                    pins[name] = b
 
     def rect(layer, x1, y1, x2, y2):
         top.shapes(LY[layer]).insert(pya.DBox(min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)))
 
-    def via(layer, x, y):
-        rect(layer, x - 0.095, y - 0.095, x + 0.095, y + 0.095)
+    def vias(layer, x1, y1, x2, y2, size=0.19, pitch=VIA_P, inset=0.05):
+        x1, y1, x2, y2 = min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+        nx = max(1, int((x2 - x1 - 2 * inset - size) / pitch + 1e-6) + 1)
+        ny = max(1, int((y2 - y1 - 2 * inset - size) / pitch + 1e-6) + 1)
+        for i in range(nx):
+            for j in range(ny):
+                cx = r5((x1 + x2) / 2 + (i - (nx - 1) / 2) * pitch)
+                cy = r5((y1 + y2) / 2 + (j - (ny - 1) / 2) * pitch)
+                rect(layer, cx - size / 2, cy - size / 2, cx + size / 2, cy + size / 2)
 
-    YC = 16.0                                 # the channels' pin edge
-    stubs = {}                                # template pin -> [stub x]
-    for i, (x0, nets) in enumerate(CHANNELS):
-        top.insert(pya.DCellInstArray(ci, pya.DTrans(pya.DTrans.M0, x0, YC + height)))
-        top.shapes(LY["text"]).insert(pya.DText(f"XCH{i}", x0, YC + height + 0.3))
-        for pin, target in dict(SHARED, **nets).items():
-            if target:
-                stubs.setdefault(target, []).append(r5(x0 + pin_x[pin]))
+    cbox = core.dbbox()
+    dx, dy = r5(60.0 - cbox.left), r5(6.0 - cbox.bottom)
+    yt = r5(cbox.top + dy)                       # the core's pin edge
+    ports = []                                  # (kind, net, x)
+    for s in core.shapes(LY["text"]).each():
+        if s.is_text() and ":" in s.text.string:
+            kind, net = s.text.string.split(":", 1)
+            ports.append((kind, net, r5(s.text.x * layout.dbu + dx)))
+    inst = top.insert(pya.DCellInstArray(core.cell_index(), pya.DTrans(pya.DVector(dx, dy))))
+    inst.flatten(1)
+    layout.delete_cell(core.cell_index())
+    for s in list(top.shapes(LY["text"]).each()):
+        if s.is_text() and s.text.string.split(":")[0] in ("pin", "wpin", "bus"):
+            top.shapes(LY["text"]).erase(s)
 
-    # supplies: wide Metal3 trunks that pass under both strap groups
-    for k, net in enumerate(("VPWR", "VGND", "VAPWR")):
-        ty = 10.6 + 1.6 * k
-        xs = stubs.pop(net) + [b.left for b in straps[net]] + [b.right for b in straps[net]]
-        rect("m3", min(xs) - 0.3, ty - 0.5, max(xs) + 0.3, ty + 0.5)
-        for x in [x for x in xs if not any(b.left <= x <= b.right for b in straps[net])]:
-            rect("m2", x - 0.10, ty - 0.40, x + 0.10, YC + 0.3)
-            for dy in (-0.25, 0.25):
-                via("v2", x, ty + dy)
-        for b in straps[net]:
-            x = r5(b.left + 0.4)          # the template's second strap group is off grid
-            while x <= b.right - 0.4 + 1e-6:
-                for dy in (-0.25, 0.25):
-                    via("v3", x, ty + dy)
-                x = r5(x + 0.5)
+    # signals, nearest pin first so the columns don't need to cross
+    sig = sorted([(net, x) for kind, net, x in ports if kind == "pin"], key=lambda p: -pins[p[0]].center().y)
+    if len(sig) * PITCH + 4.0 > 30.0:
+        fail("too many signal columns for the west margin")
+    for k, (net, x) in enumerate(sig):
+        ty, col = r5(yt + 1.0 + TRACK * k), r5(4.0 + PITCH * k)
+        pb = pins[net]
+        py = r5(pb.center().y)
+        rect("m2", x - 0.10, yt - 0.2, x + 0.10, ty + 0.145)
+        vias("v2", x - 0.095, ty - 0.095, x + 0.095, ty + 0.095, inset=0)
+        rect("m3", col - 0.145, ty - 0.10, x + 0.145, ty + 0.10)
+        rect("m2", col - 0.10, py - 0.145, col + 0.10, ty + 0.145)
+        vias("v2", col - 0.095, ty - 0.095, col + 0.095, ty + 0.095, inset=0)
+        vias("v2", col - 0.095, py - 0.095, col + 0.095, py + 0.095, inset=0)
+        rect("m3", pb.left, pb.bottom, col + 0.145, pb.top)
+    y = r5(yt + 1.0 + TRACK * len(sig) + 1.0)
 
-    # channel 0's pads: Metal2 down to the analog pins on the south edge
-    for level, net in enumerate(("analog_0", "analog_1")):
-        (x,), (px, py) = stubs.pop(net), pins[net]
-        jog = 2.0 + 1.5 * level
-        if abs(x - px) < 0.4:
-            rect("m2", x - 0.10, 0.5, x + 0.10, YC + 0.3)
-        else:
-            rect("m2", x - 0.10, jog - 0.5, x + 0.10, YC + 0.3)
-            rect("m2", min(x, px) - 0.5, jog - 0.5, max(x, px) + 0.5, jog + 0.5)
-            rect("m2", px - 0.5, 0.0, px + 0.5, jog + 0.5)
+    # supplies
+    for k, net in enumerate((VL, VH, VS)):
+        sy = r5(y + 2.0 + k * 5.0)              # strap centre, 4 um wide
+        mx = r5(36.0 + k * 6.0)                 # west riser centre, 4 um wide
+        xs = [x for kind, n, x in ports if kind == "bus" and n == net]
+        rect("m3", mx - 2.0, sy - 2.0, max(xs) + BUS_W / 2, sy + 2.0)
+        for x in xs:
+            rect("m2", x - BUS_W / 2, yt - 0.3, x + BUS_W / 2, sy + 2.0)
+            vias("v2", x - BUS_W / 2, sy - 2.0, x + BUS_W / 2, sy + 2.0)
+        pb = pins[net]
+        ty1, ty2 = r5(pb.center().y - 10.0), r5(pb.center().y + 10.0)
+        rect("m4", mx - 2.0, min(ty1, sy - 2.0), mx + 2.0, max(ty2, sy + 2.0))
+        vias("v3", mx - 2.0, sy - 2.0, mx + 2.0, sy + 2.0)
+        # TopMetal1 from the pin across the riser, TopVia1 where they overlap
+        rect("tm1", pb.left, ty1, mx + 2.0 + 0.42, ty2)
+        vias("tv1", mx - 2.0, ty1, mx + 2.0, ty2, size=0.42, pitch=0.84, inset=0.45)
+    y = r5(y + 15.0 + 1.0)
 
-    # signals: one Metal3 trunk each, a Metal2 column by the west edge, and a
-    # short Metal3 stub from the column to the pin
-    for k, net in enumerate(sorted(stubs, key=lambda n: -pins[n][1])):
-        ty, col = r5(5.0 + TRACK * k), r5(1.5 + PITCH * k)
-        px, py = pins[net]
-        rect("m3", col - 0.145, ty - 0.10, max(stubs[net]) + 0.145, ty + 0.10)
-        for x in stubs[net]:
-            rect("m2", x - 0.10, ty - 0.145, x + 0.10, YC + 0.3)
-            via("v2", x, ty)
-        via("v2", col, ty)
-        rect("m2", col - 0.10, min(ty, py) - 0.145, col + 0.10, max(ty, py) + 0.145)
-        via("v2", col, py)
-        rect("m3", px - 0.2, py - 0.10, col + 0.145, py + 0.10)
+    # analog pads: the eastern one takes the lower track
+    pads = sorted([(net, x) for kind, net, x in ports if kind == "wpin"], key=lambda p: -p[1])
+    for k, (net, x) in enumerate(pads):
+        py = r5(y + 1.5 + k * 4.5)              # 3 um Metal3 track
+        mx = r5(518.0 + k * 5.0)                # 3 um Metal4 riser
+        pb = pins[net]
+        rect("m2", x - WIDE_W / 2, yt - 0.3, x + WIDE_W / 2, py + 1.5)
+        vias("v2", x - WIDE_W / 2, py - 1.5, x + WIDE_W / 2, py + 1.5)
+        rect("m3", x - WIDE_W / 2, py - 1.5, mx + 1.5, py + 1.5)
+        cy = r5(pb.center().y)
+        rect("m4", mx - 1.5, min(py, cy) - 1.5, mx + 1.5, max(py, cy) + 1.5)
+        vias("v3", mx - 1.5, py - 1.5, mx + 1.5, py + 1.5)
+        rect("m3", mx - 1.5, cy - 1.5, pb.right, cy + 1.5)
+        vias("v3", mx - 1.5, cy - 1.5, mx + 1.5, cy + 1.5)
 
     merge_duplicate_proxies()
-    out = os.path.join(HERE, TOP + ".gds")
+    out = os.path.join(HERE, "..", "gds", TOP + ".gds")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     layout.write(out)
     box = top.dbbox()
-    print(f"build_blocks: wrote {out}: {box.width():.1f} x {box.height():.1f} um, "
-          f"{len(CHANNELS)} channels")
+    print(f"build_blocks: wrote {os.path.normpath(out)}: {box.width():.1f} x {box.height():.1f} um, "
+          f"core {cbox.width():.1f} x {cbox.height():.1f} um, top of routing at y = {y + 9.0:.1f} um")
 
 
 BLOCKS = {f.__name__: f for f in (dff_c2mos, level_shifter_up, divider_16, delay_2ns, muxlv, muxhv,
