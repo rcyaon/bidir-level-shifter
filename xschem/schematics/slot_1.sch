@@ -5,7 +5,18 @@ V {}
 S {}
 E {}
 C {schematics/bidir_channel.sym} 0 0 0 0 {name=XCH0}
-C {devices/lab_pin.sym} -140 -40 0 0 {name=l1 sig_type=std_logic lab=s1_an[0]}
+C {devices/lab_pin.sym} -380 -40 0 0 {name=l1 sig_type=std_logic lab=s1_an[0]}
+N -380 -40 -260 -40 {lab=s1_an[0]}
+N -320 -80 -320 -40 {lab=s1_an[0]}
+N -200 -40 -170 -40 {lab=a0}
+N -170 -40 -140 -40 {lab=a0}
+C {devices/lab_wire.sym} -170 -40 0 0 {name=l104 sig_type=std_logic lab=a0}
+C {sg13cmos5l_pr/rppd.sym} -230 -40 3 0 {name=RPROT w=4.0e-6 l=1.2e-6 model=rppd body=vss_1v2 spiceprefix=X b=0 m=1}
+C {sg13cmos5l_pr/dpantenna.sym} -320 -110 0 0 {name=DPROT model=dpantenna l=10u w=10u spiceprefix=X}
+C {devices/lab_pin.sym} -320 -140 0 0 {name=l103 sig_type=std_logic lab=vdd_1v2}
+T {DPROT/RPROT: s1_an[0] carries 1.2 V signals, but the pad's own ESD diode
+goes to the 3.3 V ring. DPROT (10 x 10 um p+ / n-well to vdd_1v2) clamps the
+pad at about 1.6-1.7 V and RPROT (~100 ohm) limits the current into channel 0.} -720 -260 0 0 0.3 0.3 {}
 C {devices/lab_pin.sym} -140 -20 0 0 {name=l2 sig_type=std_logic lab=dig_in[0]}
 C {devices/lab_pin.sym} -140 0 0 0 {name=l3 sig_type=std_logic lab=dig_in[8]}
 C {devices/lab_pin.sym} -140 20 0 0 {name=l4 sig_type=std_logic lab=enable}

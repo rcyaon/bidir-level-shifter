@@ -2,39 +2,39 @@
  "cells": [
   {
    "name": "slot_1",
-   "width": 537.15,
+   "width": 547.15,
    "height": 273.0,
-   "shapes": 61020
+   "shapes": 64024
   },
   {
    "name": "bidir_channel",
    "width": 102.81,
    "height": 101.59,
-   "shapes": 11787
+   "shapes": 11970
   },
   {
    "name": "divider_16",
    "width": 75.45,
    "height": 24.66,
-   "shapes": 2917
+   "shapes": 2977
   },
   {
    "name": "dff_c2mos",
    "width": 31.54,
    "height": 8.83,
-   "shapes": 660
+   "shapes": 674
   },
   {
    "name": "delay_2ns",
    "width": 43.08,
    "height": 11.69,
-   "shapes": 609
+   "shapes": 617
   },
   {
    "name": "level_shifter_up",
    "width": 28.35,
    "height": 9.39,
-   "shapes": 409
+   "shapes": 427
   },
   {
    "name": "nandhv",
@@ -46,13 +46,13 @@
    "name": "muxhv",
    "width": 16.32,
    "height": 9.46,
-   "shapes": 312
+   "shapes": 316
   },
   {
    "name": "muxlv",
    "width": 14.8,
    "height": 8.3,
-   "shapes": 206
+   "shapes": 212
   },
   {
    "name": "schmlv",

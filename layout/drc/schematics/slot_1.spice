@@ -1,15 +1,17 @@
 ** sch_path: /foss/designs/Designs/bidir-level-shifter/xschem/schematics/slot_1.sch
-.subckt slot_1 vdd_1v2 vdd_3v3 vss_1v2 vss_3v3 enable clk reset s1_an[0] s1_an[1] s1_an_0_esd vbias ibias0 ibias1 analog_bus0
-+ analog_bus1 analog_bus2 analog_bus3 dig_in[0] dig_in[1] dig_in[2] dig_in[3] dig_in[4] dig_in[5] dig_in[6] dig_in[7] dig_in[8] dig_in[9]
-+ dig_in[10] dig_in[11] dig_in[12] dig_in[13] dig_in[14] dig_in[15] dig_in[16] dig_in[17] dig_in[18] dig_in[19] dig_in[20] dig_in[21]
-+ dig_in[22] dig_in[23] dig_out[0] dig_out[1] dig_out[2] dig_out[3] dig_out[4] dig_out[5] dig_out[6] dig_out[7] dig_out[8] dig_out[9]
-+ dig_out[10] dig_out[11]
+.subckt slot_1 vdd_1v2 vdd_3v3 vss_1v2 vss_3v3 enable clk reset dig_in[0] dig_in[1] dig_in[2] dig_in[3] dig_in[4] dig_in[5]
++ dig_in[6] dig_in[7] dig_in[8] dig_in[9] dig_in[10] dig_in[11] dig_in[12] dig_in[13] dig_in[14] dig_in[15] dig_in[16] dig_in[17] dig_in[18]
++ dig_in[19] dig_in[20] dig_in[21] dig_in[22] dig_in[23] dig_out[0] dig_out[1] dig_out[2] dig_out[3] dig_out[4] dig_out[5] dig_out[6]
++ dig_out[7] dig_out[8] dig_out[9] dig_out[10] dig_out[11] s1_an[0] s1_an[1] s1_an_0_esd vbias ibias0 ibias1 analog_bus0 analog_bus1
++ analog_bus2 analog_bus3
 *.PININFO vdd_1v2:B vdd_3v3:B vss_1v2:B vss_3v3:B enable:B clk:B reset:B s1_an[0]:B s1_an[1]:B s1_an_0_esd:B vbias:B ibias0:B
 *+ ibias1:B analog_bus0:B analog_bus1:B analog_bus2:B analog_bus3:B dig_in[0]:B dig_in[1]:B dig_in[2]:B dig_in[3]:B dig_in[4]:B dig_in[5]:B
 *+ dig_in[6]:B dig_in[7]:B dig_in[8]:B dig_in[9]:B dig_in[10]:B dig_in[11]:B dig_in[12]:B dig_in[13]:B dig_in[14]:B dig_in[15]:B dig_in[16]:B
 *+ dig_in[17]:B dig_in[18]:B dig_in[19]:B dig_in[20]:B dig_in[21]:B dig_in[22]:B dig_in[23]:B dig_out[0]:B dig_out[1]:B dig_out[2]:B dig_out[3]:B
-*+ dig_out[4]:B dig_out[5]:B dig_out[6]:B dig_out[7]:B dig_out[8]:B dig_out[9]:B dig_out[10]:B dig_out[11]:B
-XCH0 s1_an[0] s1_an[1] dig_in[0] dig_in[8] enable dig_in[4] dig_out[0] vdd_1v2 vdd_3v3 vss_1v2 bidir_channel
+*+ dig_out[4]:B dig_out[5]:B dig_out[6]:B dig_out[7]:B dig_out[8]:B dig_out[9]:B
+XCH0 a0 s1_an[1] dig_in[0] dig_in[8] enable dig_in[4] dig_out[0] vdd_1v2 vdd_3v3 vss_1v2 bidir_channel
+RRPROT s1_an[0] a0 95.38 $SUB=vss_1v2 $[rppd] w=4.0e-6 l=1.2e-6 b=0
+DDPROT s1_an[0] vdd_1v2 dpantenna l=10u w=10u
 XDV0 dig_out[0] dig_out[4] vdd_1v2 vss_1v2 divider_16
 XCH1 a1 b_bus dig_in[1] dig_in[8] enable dig_in[5] dig_out[1] vdd_1v2 vdd_3v3 vss_1v2 bidir_channel
 XDV1 dig_out[1] dig_out[5] vdd_1v2 vss_1v2 divider_16

@@ -35,6 +35,8 @@ BUS_W, BUS_S = 1.2, 0.4      # Metal2 supply buses down both sides of a block
 WIDE_W = 1.0                 # Metal2 width of a pad net's pin
 VIA_P = 0.48                 # via pitch in an array (0.19 via, 0.29 space)
 LV_LIB, HV_LIB = "sg13cmos5l_stdcell", "sg13cmos5l_stdcell_hv"
+# nets that get two cuts wherever they connect (gate contacts, pin vias)
+SUPPLY_NETS = {"vdd", "vss", "vddl", "vddh", "vdd_1v2", "vdd_3v3", "vss_1v2"}
 
 layout = pya.Layout()
 layout.dbu = 0.001
@@ -257,9 +259,12 @@ def child(name, nets, well="*"):
 
 def gate_contact(c, gx1, gx2, y_poly, up, net=None, via_x=None):
     """Poly pad with as many contacts as fit across gx1..gx2, under one
-    Metal1 strip; returns the via point (the pad's centre, or `via_x`)."""
+    Metal1 strip; returns the via point (the pad's centre, or `via_x`).
+    A gate tied to a supply gets a pad wide enough for two contacts."""
     gc = r5((gx1 + gx2) / 2)
     half = max(0.15, (gx2 - gx1) / 2)
+    if net in SUPPLY_NETS:
+        half = max(half, 0.32)
     s = 1 if up else -1
     c.box("poly", gc - half, y_poly, gc + half, y_poly + s * 0.33)
     cy = r5(y_poly + s * 0.18)
@@ -575,6 +580,87 @@ class Block:
             for j in range(ny):
                 self.via(layer, r5(cx + (i - (nx - 1) / 2) * VIA_P), r5(cy + (j - (ny - 1) / 2) * VIA_P))
 
+    def row_geometry(self, r, y0):
+        """Metal1, Via1 and Metal2 of row `r` as drawn so far, plus every
+        supply rail, for the spacing checks in `second_via`."""
+        if r in self.geo:
+            return self.geo[r]
+        g = {k: pya.Region() for k in ("m1", "v1", "m2")}
+        dbu = layout.dbu
+        for comp, dx, dy, _ in self.rows[r]["comps"]:
+            t = pya.DCplxTrans(1.0, 0, False, dx, y0 + dy)
+            for ci, ix, iy in comp.insts:
+                ti = (t * pya.DCplxTrans(1.0, 0, False, ix, iy)).to_itrans(dbu)
+                for k in g:
+                    g[k] += pya.Region(layout.cell(ci).begin_shapes_rec(LY[k])).transformed(ti)
+            for layer, b in comp.shapes:
+                if layer in g:
+                    g[layer].insert(b.moved(dx, y0 + dy).to_itype(dbu))
+        for net, vx, vy, sx, kind in self.rows[r]["ports"]:
+            if kind != "v1":
+                continue
+            vy = vy + y0
+            g["m1"].insert(pya.DBox(vx - 0.105, vy - 0.145, vx + 0.105, vy + 0.145).to_itype(dbu))
+            g["v1"].insert(pya.DBox(vx - 0.095, vy - 0.095, vx + 0.095, vy + 0.095).to_itype(dbu))
+            if abs(sx - vx) > 1e-6:
+                g["m2"].insert(pya.DBox(min(vx, sx) - 0.145, vy - 0.10, max(vx, sx) + 0.145, vy + 0.10)
+                               .to_itype(dbu))
+        for vx, vy in self.rows[r]["vias"]:
+            g["m1"].insert(pya.DBox(vx - 0.105, y0 + vy - 0.145, vx + 0.105, y0 + vy + 0.145).to_itype(dbu))
+            g["v1"].insert(pya.DBox(vx - 0.095, y0 + vy - 0.095, vx + 0.095, y0 + vy + 0.095).to_itype(dbu))
+        g["m1"] += self.rails
+        g["m1"].merge()
+        self.geo[r] = g
+        return g
+
+    def second_via(self, r, net, vx, vy, sx, y0):
+        """A second Via1 for a supply pin, straight above or below its first
+        one on the pin's Metal2 stub, with a Metal1 strap from the pin to it.
+
+        The first place that keeps Metal1 0.18 (the strap is too short for the
+        wide-metal rule), Via1 0.22 and Metal2 0.21 from everything else in the
+        row wins. Ports with a via there already (wide
+        MOSFET strips) are left alone.
+        """
+        if abs(sx - vx) > 1e-6:
+            return
+        dbu = layout.dbu
+        g = self.row_geometry(r, y0)
+        if any(abs(x - vx) < 1e-6 and 1e-6 < abs(y0 + y - vy) < 0.6 for x, y in self.rows[r]["vias"]):
+            return
+        pad = pya.Region(pya.DBox(vx - 0.105, vy - 0.145, vx + 0.105, vy + 0.145).to_itype(dbu))
+        pin = g["m1"].interacting(pad)
+        others_m1 = g["m1"] - pin
+        own_v1 = pya.Region(pya.DBox(vx - 0.095, vy - 0.095, vx + 0.095, vy + 0.095).to_itype(dbu))
+        others_v1 = g["v1"].not_interacting(own_v1)
+        for d in (0.42, -0.42, 0.48, -0.48, 0.60, -0.60):
+            y2 = r5(vy + d)
+            strap = pya.DBox(vx - 0.105, min(vy, y2) - 0.145, vx + 0.105, max(vy, y2) + 0.145)
+            via = pya.DBox(vx - 0.095, y2 - 0.095, vx + 0.095, y2 + 0.095)
+            # the part of the strap off the pin must keep its distance
+            extra = pya.Region(strap.to_itype(dbu)) - pin
+            if not extra.is_empty() and not others_m1.interacting(extra.sized(int(0.18 / dbu) - 1)).is_empty():
+                continue
+            if not others_v1.interacting(pya.Region(via.to_itype(dbu)).sized(int(0.22 / dbu) - 1)).is_empty():
+                continue
+            m2 = None
+            if d < 0:
+                if y2 - 0.145 < y0 - 0.3:
+                    continue
+                m2 = pya.DBox(sx - 0.10, y2 - 0.145, sx + 0.10, vy)
+                if not g["m2"].interacting(pya.Region(m2.to_itype(dbu)).sized(int(0.21 / dbu) - 1)).is_empty():
+                    continue
+            self.rect("m1", strap.left, strap.bottom, strap.right, strap.top)
+            self.via("v1", vx, y2)
+            g["m1"].insert(strap.to_itype(dbu))
+            g["v1"].insert(via.to_itype(dbu))
+            if m2:
+                self.rect("m2", m2.left, m2.bottom, m2.right, m2.top)
+                g["m2"].insert(m2.to_itype(dbu))
+            self.doubled += 1
+            return
+        self.single.append((net, round(vx, 3), round(vy, 3)))
+
     @staticmethod
     def free_x(want, taken, blocked=(), lo=0.0, clear=PITCH):
         """Nearest x to `want` that keeps `clear` to `taken` and avoids `blocked`."""
@@ -688,6 +774,14 @@ class Block:
         if dry:
             return x_hi - x_lo + 2 * ring_m, block_top
         self.top = layout.create_cell(self.name)
+        # every supply rail, out to the guard ring, for the second pin vias
+        self.geo, self.doubled, self.single = {}, 0, []
+        self.rails = pya.Region()
+        for r in range(len(rows)):
+            for k in range(len(sup)):
+                ry = rail_y(r, k)
+                self.rails.insert(pya.DBox(x_lo - ring_m, ry - RAIL_W / 2, x_hi + ring_m, ry + RAIL_W / 2)
+                                  .to_itype(layout.dbu))
 
         for r, row in enumerate(rows):
             y0 = y_row[r]
@@ -724,6 +818,8 @@ class Block:
                     self.rect("m2", sx - 0.10, vy - 0.145, sx + 0.10, ry + 0.24 + 0.145)
                     for d in (-0.24, 0.24):
                         self.via("v1", sx, ry + d)
+                    if kind == "v1":
+                        self.second_via(r, net, vx, vy, sx, y0)
             for net, (k, lo, hi) in track[r].items():
                 ty = r5(y_chan[r] + k * TRACK)
                 wide = net in self.wide
@@ -794,7 +890,10 @@ class Block:
         m3 = sum((hi - lo) for t in track for _, lo, hi in t.values())
         msg = (f"{box.width():.1f} x {box.height():.1f} um, "
                f"{sum(len(row['ports']) for row in rows)} pin connections, "
-               f"{sum(len(t) for t in track)} trunks ({m3:.0f} um of Metal3), {len(riser)} risers")
+               f"{sum(len(t) for t in track)} trunks ({m3:.0f} um of Metal3), {len(riser)} risers, "
+               f"{self.doubled} supply pins doubled, {len(self.single)} left on one via")
+        for net, x, y in self.single:
+            print(f"build_blocks: {self.name}: supply pin {net} at ({x}, {y}) has one Via1")
         if not write:
             print(f"build_blocks: {self.name}: {msg}")
             return self.top
@@ -975,8 +1074,14 @@ WRAPPER = os.path.join(HERE, "floorplan", "slot1_wrapper.gds")
 # Chipalooza slot 1 (github.com/RTimothyEdwards/sg13cmos5l_ocd_chipalooza,
 # gds/slot1_wrapper.gds). The netlist is xschem/schematics/slot_1.sch.
 VL, VH, VS = "vdd_1v2", "vdd_3v3", "vss_1v2"
-# channel: (a_pad, b_pad); channels 1-3 share a 3.3 V bus, channel 0 is on the pads
-PADS = {0: ("s1_an[0]", "s1_an[1]"), 1: ("a1", "b_bus"), 2: ("a2", "b_bus"), 3: ("a3", "b_bus")}
+# channel: (a_pad, b_pad); channels 1-3 share a 3.3 V bus, channel 0 is on the pads.
+# Channel 0's 1.2 V side reaches its pad s1_an[0] through the protection in
+# pad_protection(): a0 -- RPROT -- s1_an[0], with DPROT from s1_an[0] to vdd_1v2.
+A0, A0_PAD = "a0", "s1_an[0]"
+PADS = {0: (A0, "s1_an[1]"), 1: ("a1", "b_bus"), 2: ("a2", "b_bus"), 3: ("a3", "b_bus")}
+DPROT_W = DPROT_L = 10.0         # p+ diode to vdd_1v2 on s1_an[0], um
+RPROT_W, RPROT_L = 4.0, 1.2      # rppd between s1_an[0] and a0, about 100 ohm
+DPROT_REACH = 10.0               # how far the diode's Metal3 tie runs past the slot edge
 
 
 def slot_core():
@@ -987,8 +1092,8 @@ def slot_core():
     channel 0 at the east end next to the analog pads.
     """
     pins = ([f"dig_in[{i}]" for i in range(12)] + [f"dig_out[{i}]" for i in range(12)] +
-            ["enable", "s1_an[0]", "s1_an[1]", VL, VH, VS])
-    b = Block("slot_core", pins, [VL, VH, VS], wide=["s1_an[0]", "s1_an[1]", "b_bus"],
+            ["enable", A0, "s1_an[1]", VL, VH, VS])
+    b = Block("slot_core", pins, [VL, VH, VS], wide=[A0, "s1_an[1]", "b_bus"],
               children=["bidir_channel", "divider_16"])
 
     def lv(name, **pins):
@@ -1013,6 +1118,140 @@ def slot_core():
     return b.route(write=False)
 
 
+def pad_protection(top, rect, vias, pin, mx, vl_bus, edge):
+    """Over-voltage protection for the 1.2 V pad s1_an[0], next to its pin.
+
+    The pad's ESD diode goes to the 3.3 V ring, so on its own it lets the
+    pad reach about 3.7 V. DPROT, a 10 x 10 um p+ diode (dpantenna) in an
+    n-well tied to vdd_1v2, starts to conduct at about 1.6-1.7 V, and RPROT
+    (about 100 ohm) sits between it and channel 0's a_pad (net a0):
+
+      - anode: Metal2 and Metal3 plates over the whole p+ area with full via
+        arrays, joined to the pin and to RPROT's bottom head,
+      - cathode: the diode's n-well guard ring, strapped in Metal2 on three
+        sides, into a 10 um wide Metal3 line that runs west onto the core's
+        east vdd_1v2 bus and east `DPROT_REACH` past the slot edge, where it
+        lands on the padframe's vdd (1.2 V) Metal3 bus (that bus is 2-20 um
+        inside the pad cells, and the pads' inner edge is 1 um inside the
+        slot),
+      - RPROT's top head: a Metal2/3 pad that the a0 Metal4 riser ends on.
+
+    `pin` is the wrapper's s1_an[0] pin box, `mx` the centre of a0's riser,
+    `vl_bus` the x of the core's east vdd_1v2 bus, `edge` the slot's east
+    edge. Returns the bottom of the a0 pad, where the riser ends.
+    """
+    dbu = layout.dbu
+    xd, yd = r5(mx - 3.0), r5(pin.bottom - 2.0)          # the diode's p+ corner
+    ci = pcell("dpantenna", model="dpantenna", w=f"{DPROT_W:g}u", l=f"{DPROT_L:g}u",
+               guardRingType="nwell", guardRingDistance="1u")
+    top.insert(pya.DCellInstArray(ci, pya.DTrans(pya.DVector(xd, yd))))
+    m1 = pya.Region(layout.cell(ci).begin_shapes_rec(LY["m1"])).merged().moved(round(xd / dbu), round(yd / dbu))
+    pplus = pya.Region(pya.DBox(xd, yd, xd + DPROT_W, yd + DPROT_L).to_itype(dbu))
+    anode = m1.interacting(pplus).bbox().to_dtype(dbu)
+    ring = m1.not_interacting(pplus)
+    outer = ring.bbox().to_dtype(dbu)
+    # width of the ring's sides, measured across the middle of its bottom side
+    cut = pya.DBox(xd + DPROT_W / 2 - 0.5, outer.bottom, xd + DPROT_W / 2 + 0.5, yd)
+    rw = r5((ring & pya.Region(cut.to_itype(dbu))).bbox().to_dtype(dbu).height())
+    bottom = pya.DBox(outer.left, outer.bottom, outer.right, outer.bottom + rw)
+    # the PCell's Metal1 ends flush with its contact array; cover the corners (M1.c1)
+    rect("m1", anode.left - 0.06, anode.bottom - 0.06, anode.right + 0.06, anode.top + 0.06)
+
+    # cathode: ring strapped in Metal2 on its bottom, left and right sides
+    tight = (rw - 0.19) / 2 - 0.001                         # one via across a side
+    rect("m2", bottom.left, bottom.bottom, bottom.right, bottom.top)
+    vias("v1", bottom.left + 0.1, bottom.bottom, bottom.right - 0.1, bottom.top, inset=tight)
+    for x1 in (outer.left, outer.right - rw):
+        rect("m2", x1, outer.bottom, x1 + rw, outer.top - rw)
+        vias("v1", x1, outer.bottom + rw + 0.3, x1 + rw, outer.top - rw - 0.3, inset=tight)
+    line = pya.DBox(vl_bus - BUS_W / 2, r5(bottom.top - 10.0), edge + DPROT_REACH, bottom.top)
+    rect("m3", line.left, line.bottom, line.right, line.top)
+    vias("v2", bottom.left + 0.1, bottom.bottom, bottom.right - 0.1, bottom.top, inset=tight)
+    vias("v2", vl_bus - BUS_W / 2, line.bottom, vl_bus + BUS_W / 2, line.top)
+
+    # RPROT above the diode, its heads 0.30 um Metal1 strips across its width
+    rx = r5(mx - 1.5)
+    ry = r5(outer.top + 0.24 + 1.0 + 0.61)                 # clear of the n-well
+    rci = pcell("rppd", model="res_rppd", w=f"{RPROT_W:g}u", l=f"{RPROT_L:g}u", b=0)
+    top.insert(pya.DCellInstArray(rci, pya.DTrans(pya.DVector(rx, ry))))
+    heads = sorted([b.moved(rx, ry) for b in boxes(rci, "m1")], key=lambda h: h.bottom)
+
+    # anode: plates from the p+ area up over RPROT's bottom head and east to the pin
+    h = heads[0]
+    plate_top = r5(h.top + 0.05)
+    rect("m2", anode.left, anode.bottom, max(anode.right, h.right + 0.05), plate_top)
+    rect("m3", anode.left, anode.bottom, pin.right, plate_top)
+    vias("v1", anode.left, anode.bottom, anode.right, anode.top)
+    vias("v1", h.left, h.bottom, h.right, h.top, inset=0.055)
+    vias("v2", anode.left, anode.bottom, anode.right, plate_top)
+
+    # a0: RPROT's top head up into a Metal2/3 pad, Metal4 riser from above
+    h = heads[1]
+    pad = pya.DBox(rx, r5(h.bottom - 0.05), rx + RPROT_W, r5(h.bottom + 2.5))
+    rect("m2", pad.left, pad.bottom, pad.right, pad.top)
+    rect("m3", pad.left, pad.bottom, pad.right, pad.top)
+    vias("v1", h.left, h.bottom, h.right, h.top, inset=0.055)
+    vias("v2", pad.left, pad.bottom, pad.right, pad.top)
+    vias("v3", mx - 1.5, pad.bottom, mx + 1.5, pad.top)
+    return pad.bottom
+
+
+# Chip art: a pixel bird and "lena" in TopMetal1, in the empty strip between
+# the top of the routing and the slot's north edge. Nothing else in the slot
+# uses TopMetal1 east of the supply pins (x < 51 um).
+ART_LAYER = "tm1"
+ART_PX = 4.0                      # pixel size, um (TopMetal1 min width/space 1.64)
+ART_ORIGIN = (360.0, 200.0)       # lower-left corner of the bird, um
+BIRD = """
+..###.......
+.#####......
+##.####.....
+.#######....
+.########...
+.#########..
+..#########.
+...######.##
+....#..#....
+...#..#.....
+"""
+LENA = """
+##................
+.#..####.###..####
+.#..#..#.#..#....#
+.#..####.#..#.####
+.#..#....#..#.#..#
+###.####.#..#.####
+"""
+
+
+def chip_art(top):
+    """Draw BIRD and LENA as merged TopMetal1 pixels.
+
+    Pixels that only touch at a corner (the bird's feet) get a diamond
+    across the corner, so the metal never pinches to zero width.
+    """
+    def pixels(art, x0, y0):
+        rows = art.strip("\n").split("\n")
+        on = {(c, len(rows) - 1 - r) for r, row in enumerate(rows) for c, ch in enumerate(row) if ch == "#"}
+        reg = pya.Region()
+        to_dbu = lambda v: int(round(v / layout.dbu))
+        for c, r in on:
+            reg.insert(pya.Box(to_dbu(x0 + c * ART_PX), to_dbu(y0 + r * ART_PX),
+                               to_dbu(x0 + (c + 1) * ART_PX), to_dbu(y0 + (r + 1) * ART_PX)))
+        h = ART_PX / 2
+        for c, r in on:
+            for dc in (-1, 1):
+                if (c + dc, r + 1) in on and (c + dc, r) not in on and (c, r + 1) not in on:
+                    px, py = x0 + (c + (dc > 0)) * ART_PX, y0 + (r + 1) * ART_PX
+                    reg.insert(pya.Polygon([pya.Point(to_dbu(px + dx), to_dbu(py + dy))
+                                            for dx, dy in ((h, 0), (0, h), (-h, 0), (0, -h))]))
+        return reg.merged()
+
+    bx, by = ART_ORIGIN
+    art = pixels(BIRD, bx, by) + pixels(LENA, bx + 14 * ART_PX, by + 3 * ART_PX)
+    top.shapes(LY[ART_LAYER]).insert(art.merged())
+
+
 def slot_top():
     """slot_core inside the slot 1 wrapper, wired to the wrapper's pins.
 
@@ -1024,7 +1263,8 @@ def slot_top():
       - supplies: 4 um Metal3 straps joined to both ends of every core
         supply bus, a 4 um Metal4 riser by the west edge down to the
         supply's TopMetal1 pin, and a TopVia1 array into it,
-      - the analog pads: 3 um Metal3 east and a 3 um Metal4 riser to the pad.
+      - the analog pads: 3 um Metal3 east and a 3 um Metal4 riser to the pad;
+        channel 0's 1.2 V side (a0) goes through pad_protection() instead.
     """
     core = slot_core()
     wrap = pya.Layout()
@@ -1077,6 +1317,14 @@ def slot_top():
     for s in list(top.shapes(LY["text"]).each()):
         if s.is_text() and s.text.string.split(":")[0] in ("pin", "wpin", "bus"):
             top.shapes(LY["text"]).erase(s)
+    # a0 is internal to the slot (between the core and RPROT): no pin for it
+    for s in list(top.shapes(LY["m3txt"]).each()):
+        if s.is_text() and s.text.string == A0:
+            at = pya.Region(pya.Box(s.text.x - 1, s.text.y - 1, s.text.x + 1, s.text.y + 1))
+            for p in list(top.shapes(LY["m3pin"]).each()):
+                if not pya.Region(p.polygon).interacting(at).is_empty():
+                    top.shapes(LY["m3pin"]).erase(p)
+            top.shapes(LY["m3txt"]).erase(s)
 
     # signals, nearest pin first so the columns don't need to cross
     sig = sorted([(net, x) for kind, net, x in ports if kind == "pin"], key=lambda p: -pins[p[0]].center().y)
@@ -1113,21 +1361,29 @@ def slot_top():
         vias("tv1", mx - 2.0, ty1, mx + 2.0, ty2, size=0.42, pitch=0.84, inset=0.45)
     y = r5(y + 15.0 + 1.0)
 
-    # analog pads: the eastern one takes the lower track
+    # analog pads: the eastern one takes the lower track; a0 ends on the
+    # protection resistor instead of the pad
     pads = sorted([(net, x) for kind, net, x in ports if kind == "wpin"], key=lambda p: -p[1])
     for k, (net, x) in enumerate(pads):
         py = r5(y + 1.5 + k * 4.5)              # 3 um Metal3 track
         mx = r5(518.0 + k * 5.0)                # 3 um Metal4 riser
-        pb = pins[net]
         rect("m2", x - WIDE_W / 2, yt - 0.3, x + WIDE_W / 2, py + 1.5)
         vias("v2", x - WIDE_W / 2, py - 1.5, x + WIDE_W / 2, py + 1.5)
         rect("m3", x - WIDE_W / 2, py - 1.5, mx + 1.5, py + 1.5)
+        vias("v3", mx - 1.5, py - 1.5, mx + 1.5, py + 1.5)
+        if net == A0:
+            cy = pad_protection(top, rect, vias, pins[A0_PAD], mx,
+                                max(x for kind, n, x in ports if kind == "bus" and n == VL),
+                                src.dbbox().right)
+            rect("m4", mx - 1.5, cy, mx + 1.5, py + 1.5)
+            continue
+        pb = pins[net]
         cy = r5(pb.center().y)
         rect("m4", mx - 1.5, min(py, cy) - 1.5, mx + 1.5, max(py, cy) + 1.5)
-        vias("v3", mx - 1.5, py - 1.5, mx + 1.5, py + 1.5)
         rect("m3", mx - 1.5, cy - 1.5, pb.right, cy + 1.5)
         vias("v3", mx - 1.5, cy - 1.5, mx + 1.5, cy + 1.5)
 
+    chip_art(top)
     merge_duplicate_proxies()
     out = os.path.join(HERE, "..", "gds", TOP + ".gds")
     os.makedirs(os.path.dirname(out), exist_ok=True)

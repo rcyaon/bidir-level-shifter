@@ -51,7 +51,9 @@ Supplies and pads don't use those minimum-width wires:
 
 - **Power.** Above every row each supply gets a 1 µm Metal1 rail across the
   whole block. Every supply pin in the row reaches its rail on a short Metal2
-  stub with two vias. The rails of one supply are joined by a 1.2 µm Metal2
+  stub with two vias at the rail and two at the pin: the second pin via sits
+  straight above or below the first, on a Metal1 strap from the pin, wherever
+  Metal1, Via1 and Metal2 spacing allow (`second_via`). The rails of one supply are joined by a 1.2 µm Metal2
   bus down *both* sides of the block, with a via array at every rail, and
   those buses are the block's supply pins at its top edge. A parent runs each
   child's buses up into its own rails, so every level is strapped the same
@@ -61,7 +63,8 @@ Supplies and pads don't use those minimum-width wires:
   All their devices sit in the channel's top row, so they never need a
   riser.
 - **Gate contacts.** A gate pad gets as many contacts as fit across it, not
-  one. Neighbouring fingers on one net share a poly bar with a row of
+  one, and a gate tied to a supply (the cascode gates on `vddl`) gets a pad
+  wide enough for two. Neighbouring fingers on one net share a poly bar with a row of
   contacts along it: the pad drivers `MPD`/`MND`, `MPA`/`MNA`, and the
   6 µm-long MOS capacitors in `delay_2ns`.
 - **Guard ring.** `bidir_channel` sits in a p-substrate guard ring (the
@@ -112,6 +115,14 @@ top-level ports. Everything is clean and matches, except that KLayout DRC
 reports 112 `Cnt.c.Digi` markers on `bidir_channel` and `slot_1`; they come
 from the PDK's HV standard cells themselves.
 
+`supply_cuts.py` lists every supply connection made through a single
+contact or via (`klayout -zz -r supply_cuts.py -rd cell=slot_1`). Every
+Via1 to Via3 and TopVia1 on a supply is doubled. What is left is contacts
+the device size allows only one of: the source/drain contacts of the narrow
+transistors in `INVLVW` and `SCHMLV`, `MN5` (0.5 µm) in the channel and the
+latch PMOS `MP1`/`MP2` (0.5 µm) in `level_shifter_up`, plus some inside the
+PDK standard cells. Two contacts there need a wider device.
+
 The stub pitch is 0.42 µm, not the 0.41 µm the rules allow: at 0.41 two
 neighbouring Via1s are exactly 0.22 µm apart, and magic merges them into one
 contact and then reports Metal1 missing between them.
@@ -127,7 +138,9 @@ the name and place the harness's `scripts/get_project_gds.sh` looks for. It
 starts from `floorplan/slot1_wrapper.gds`, taken unchanged from
 <https://github.com/RTimothyEdwards/sg13cmos5l_ocd_chipalooza/tree/main/gds>
 (537.15 × 273 µm), and keeps its pins and PR boundary as drawn. The
-schematic is `xschem/schematics/slot_1.sch`.
+schematic is `xschem/schematics/slot_1.sch`. The cell is 547.15 µm wide:
+the protection diode's Metal3 tie runs 10 µm past the east edge (see
+below).
 
 The core (four channels and the interface gates, 435 × 143 µm) is routed
 like any block and sits at the south-west. Above it: one Metal3 trunk per
@@ -135,6 +148,32 @@ signal to a Metal2 column by the west edge and a Metal3 stub into its pin;
 4 µm Metal3 straps joined to both ends of every core supply bus, each with a
 4 µm Metal4 riser and a TopVia1 array into its TopMetal1 pin; and 3 µm
 Metal3/Metal4 to the two analog pads on the east edge.
+
+**Chip art.** A pixel bird and "lena" in TopMetal1 (4 µm pixels) sit in the
+empty strip above the routing, at x 360-488, y 200-240 µm (`chip_art()`,
+drawn from the `BIRD` and `LENA` strings). They are floating metal, not
+connected to anything. In the viewer: `docs/viewer/index.html#slot_1@340,190,520,250`.
+
+**1.2 V pad protection.** `s1_an[0]` carries channel 0's 1.2 V side, but the
+analog pad's ESD diode goes to the 3.3 V ring, so it only stops the pad at
+about 3.7 V. Following the harness owner's instructions (design review,
+Oct 2026), the slot adds next to that pin (`pad_protection()`):
+
+- `DPROT`, a 10 × 10 µm p+ / n-well diode (`dpantenna`) from `s1_an[0]` to
+  `vdd_1v2`. It conducts from about 1.6-1.7 V on. The anode has Metal2 and
+  Metal3 plates over the whole p+ area with full via arrays, joined to the
+  pin. The n-well's guard ring is strapped in Metal2 on three sides into a
+  10 µm wide Metal3 line that runs west onto the core's east `vdd_1v2` bus
+  and east 10 µm past the slot edge. There it lands in the middle of the
+  padframe's `vdd` (1.2 V) Metal3 bus, which runs 2-20 µm inside the pad
+  cells; the pads' inner edge is 1 µm inside the slot. (TopMetal1, magic's
+  `metal5`, would be wrong here: on the pads it carries only `iovdd` and
+  `iovss`.)
+- `RPROT`, a 4 × 1.2 µm `rppd` (about 95 Ω) between the pad node and
+  channel 0's `a_pad` (net `a0`), so the diode takes the current, not the
+  channel. It adds about 1 ns into 10 pF when channel 0 drives the pad.
+
+It does not save the channel from a 3.3 V supply wired straight to the pin.
 
 The harness gives the slot 24 `dig_in` bits (latched from SPI, or routed in
 real time from a GPIO), 12 `dig_out` bits (read back over SPI or routed to a
@@ -160,7 +199,8 @@ more than two pads, so:
 | `vdd_1v2`, `vdd_3v3`, `vss_1v2` | `vddl`, `vddh`, `vss` of everything |
 | `vss_3v3` | not connected (see below) |
 | `enable` | `en` of all channels; also echoed on `dig_out[11]` |
-| `s1_an[0]`, `s1_an[1]` | channel 0 `a_pad`, `b_pad` |
+| `s1_an[0]` | channel 0 `a_pad` through `RPROT`; `DPROT` to `vdd_1v2` |
+| `s1_an[1]` | channel 0 `b_pad` |
 | `dig_in[3:0]` | `dir` of channels 0-3 |
 | `dig_in[7:4]` | `tm` of channels 0-3 |
 | `dig_in[8]` | `oe_n` (shared) |

@@ -5,99 +5,144 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>bidir-level-shifter layout viewer</title>
 <style>
+  /* EDA-tool look: dark dock panel, monospace, title-bar sections, stippled layer swatches */
   :root {
-    --bg: #f4f5f7; --panel: #ffffff; --text: #1c2026; --muted: #5d6673;
-    --line: #d9dde3; --accent: #0b6bcb; --canvas: #0d1014;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14171c; --panel: #1c2027; --text: #e6e9ee; --muted: #9aa3b0;
-      --line: #2e343d; --accent: #6db3ff; --canvas: #0a0c0f;
-    }
+    --dock: #1d2126; --dock-2: #252a31; --title: #2f353e; --text: #d7dce3; --muted: #8b95a3;
+    --line: #3a414b; --edge: #0f1215; --accent: #f0b429; --sel: #34404f; --canvas: #0b0d10;
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    display: grid; grid-template-columns: 270px 1fr; grid-template-rows: 100%;
-    background: var(--bg); color: var(--text);
-    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: 1fr 290px; grid-template-rows: 100%;
+    background: var(--edge); color: var(--text);
+    font: 12px/1.35 var(--mono);
   }
+  body.collapsed { grid-template-columns: 1fr 30px; }
+  body.collapsed aside > :not(.head) { display: none; }
+  body.collapsed .head { flex-direction: column; height: 100%; padding: 4px 0; }
+  body.collapsed .head h1 {
+    writing-mode: vertical-rl; transform: rotate(180deg); margin-top: 8px; color: var(--muted);
+  }
+  body.collapsed .head h1 .tag { display: none; }
   aside {
-    background: var(--panel); border-right: 1px solid var(--line);
-    padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+    grid-column: 2; grid-row: 1; min-width: 0;
+    background: var(--dock); border-left: 1px solid var(--edge);
+    box-shadow: inset 1px 0 0 var(--line);
+    overflow-y: auto; display: flex; flex-direction: column;
   }
-  h1 { font-size: 15px; margin: 0; }
-  h2 {
-    font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
-    color: var(--muted); margin: 0 0 6px; font-weight: 600;
+  .head {
+    display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px;
+    background: linear-gradient(#353c46, #2b3139); border-bottom: 1px solid var(--edge);
+    position: sticky; top: 0; z-index: 1;
   }
-  p { margin: 0; color: var(--muted); font-size: 12px; }
+  h1 { font-size: 12px; margin: 0; font-weight: 600; letter-spacing: .02em; flex: 1; white-space: nowrap; }
+  h1 .tag { color: var(--accent); }
+  #panel-toggle { width: 20px; height: 20px; padding: 0; line-height: 18px; text-align: center; flex: none; }
+  .dock { border-bottom: 1px solid var(--edge); }
+  .dock > h2 {
+    display: flex; align-items: center; gap: 6px; margin: 0; padding: 3px 10px;
+    background: var(--title); border-bottom: 1px solid var(--edge); box-shadow: inset 0 1px 0 #3c434d;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #b9c2ce;
+  }
+  .dock > h2::before { content: "▾"; color: var(--muted); }
+  .dock > h2 .meta { margin-left: auto; color: var(--muted); letter-spacing: 0; text-transform: none; font-weight: 400; }
+  .body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  p { margin: 0; color: var(--muted); font-size: 11px; }
+  code, kbd { font: inherit; color: #c9d3df; background: var(--dock-2); padding: 0 3px; border: 1px solid var(--line); }
   a { color: var(--accent); }
   select, button {
-    font: inherit; color: var(--text); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+    font: inherit; color: var(--text); background: linear-gradient(#323943, #2a3038);
+    border: 1px solid var(--edge); box-shadow: inset 0 1px 0 #414955; border-radius: 2px; padding: 3px 8px;
   }
-  select { width: 100%; }
+  select { width: 100%; background: var(--dock-2); box-shadow: none; border-color: var(--line); }
   button { cursor: pointer; }
   button:hover, select:hover { border-color: var(--accent); }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; }
-  #layers { list-style: none; margin: 0; padding: 0; }
-  #layers label {
-    display: flex; align-items: center; gap: 8px; padding: 3px 4px;
-    border-radius: 4px; cursor: pointer;
+  button:active { background: #23282f; box-shadow: inset 0 1px 2px #000; }
+  :focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+  .toolbar { display: flex; gap: 0; }
+  .toolbar button { flex: 1; border-radius: 0; }
+  .toolbar button + button { border-left: 0; }
+  .toolbar button:first-child { border-radius: 2px 0 0 2px; }
+  .toolbar button:last-child { border-radius: 0 2px 2px 0; }
+  .readout { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-variant-numeric: tabular-nums; }
+  .readout dt { color: var(--muted); }
+  .readout dd { margin: 0; text-align: right; }
+  #layers, #labels { list-style: none; margin: 0; padding: 2px 0; }
+  #layers label, #labels label {
+    display: grid; grid-template-columns: 14px 22px 1fr auto auto; align-items: center; gap: 6px;
+    padding: 1px 10px; cursor: pointer; white-space: nowrap;
   }
-  #layers label:hover { background: var(--bg); }
-  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid; flex: none; }
-  .count { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-  main { position: relative; min-width: 0; min-height: 0; background: var(--canvas); }
-  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #labels label { grid-template-columns: 14px 1fr; }
+  #layers li:nth-child(even) label { background: rgba(255, 255, 255, .025); }
+  #layers label:hover, #labels label:hover { background: var(--sel); }
+  input[type=checkbox] { margin: 0; width: 12px; height: 12px; accent-color: var(--accent); }
+  .swatch { width: 22px; height: 12px; border: 1px solid; flex: none; }
+  .gds { color: var(--muted); font-size: 10.5px; text-align: right; min-width: 44px; }
+  .count { color: #6f7a88; font-size: 10.5px; text-align: right; min-width: 40px; font-variant-numeric: tabular-nums; }
+  #layers li.off label { color: #66707d; }
+  .foot { margin-top: auto; padding: 6px 10px; border-top: 1px solid var(--line); }
+  main { grid-column: 1; grid-row: 1; position: relative; min-width: 0; min-height: 0; background: var(--canvas); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
   canvas.dragging { cursor: grabbing; }
   #status {
-    position: absolute; left: 10px; bottom: 10px; padding: 4px 8px; border-radius: 6px;
-    background: rgba(0, 0, 0, .6); color: #e6e9ee; font-size: 12px;
-    font-variant-numeric: tabular-nums; pointer-events: none;
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 10px;
+    background: rgba(29, 33, 38, .92); border-top: 1px solid var(--line); color: var(--text);
+    font: 11px var(--mono); font-variant-numeric: tabular-nums; pointer-events: none;
   }
   #status:empty { display: none; }
   #message {
     position: absolute; inset: 0; display: grid; place-items: center;
-    color: #9aa3b0; pointer-events: none; text-align: center; padding: 16px;
+    color: var(--muted); pointer-events: none; text-align: center; padding: 16px;
   }
   @media (max-width: 720px) {
-    body { grid-template-columns: 1fr; grid-template-rows: auto minmax(55vh, 1fr); height: auto; min-height: 100%; }
-    aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 45vh; }
+    body, body.collapsed { grid-template-columns: 1fr; grid-template-rows: minmax(55vh, 1fr) auto; height: auto; min-height: 100%; }
+    main { grid-column: 1; grid-row: 1; }
+    aside { grid-column: 1; grid-row: 2; border-left: 0; border-top: 1px solid var(--line); max-height: 45vh; }
+    body.collapsed .head { flex-direction: row; height: auto; }
+    body.collapsed .head h1 { writing-mode: horizontal-tb; transform: none; margin: 0; }
   }
 </style>
 </head>
 <body>
-<aside>
-  <div>
-    <h1>bidir-level-shifter</h1>
-    <p>Layout viewer. Drag to pan, scroll or pinch to zoom.</p>
+<aside id="panel">
+  <div class="head">
+    <h1><span class="tag">▣</span> bidir-level-shifter</h1>
+    <button id="panel-toggle" type="button" aria-controls="panel" aria-expanded="true"
+            aria-label="Hide panel" title="Hide panel">›</button>
   </div>
-  <div>
+  <section class="dock">
     <h2>Cell</h2>
-    <select id="cell" aria-label="Cell"></select>
-    <p id="info" style="margin-top:6px"></p>
-  </div>
-  <div class="row">
-    <button id="fit" type="button">Fit</button>
-    <button id="all" type="button">All layers</button>
-    <button id="none" type="button">None</button>
-  </div>
-  <div>
-    <h2>Layers</h2>
+    <div class="body">
+      <select id="cell" aria-label="Cell"></select>
+      <dl class="readout" style="margin:0">
+        <dt>bbox</dt><dd id="info">–</dd>
+        <dt>shapes</dt><dd id="nshapes">–</dd>
+        <dt>pdk</dt><dd>IHP SG13CMOS5L</dd>
+      </dl>
+      <div class="toolbar">
+        <button id="fit" type="button" title="Zoom to fit">Fit</button>
+        <button id="all" type="button" title="Show all layers">All</button>
+        <button id="none" type="button" title="Hide all layers">None</button>
+      </div>
+    </div>
+  </section>
+  <section class="dock">
+    <h2>Layers <span class="meta">gds &nbsp; shapes</span></h2>
     <ul id="layers"></ul>
-  </div>
-  <div>
+  </section>
+  <section class="dock">
     <h2>Labels</h2>
-    <ul id="labels" style="list-style:none;margin:0;padding:0">
+    <ul id="labels">
       <li><label><input type="checkbox" id="nets" checked> Net names</label></li>
       <li><label><input type="checkbox" id="insts"> Instance names</label></li>
     </ul>
+  </section>
+  <div class="foot">
+    <p>Drag to pan, scroll or pinch to zoom. <code>#slot_1@x1,y1,x2,y2</code> opens a cell
+       zoomed to a box in µm. Data from <code>layout/*.gds</code> via
+       <code>docs/viewer/make_data.py</code>.</p>
   </div>
-  <p>IHP SG13CMOS5L. Generated from <code>layout/*.gds</code> by
-     <code>docs/viewer/make_data.py</code>.</p>
 </aside>
 <main>
   <canvas id="view" aria-label="Layout"></canvas>
@@ -111,6 +156,21 @@ const $ = id => document.getElementById(id);
 let layerDefs = [], visible = {}, cell = null, paths = {};
 let scale = 1, ox = 0, oy = 0;            // screen = (world_um * scale + ox, -world_um * scale + oy)
 
+// layer-palette style swatch: a hatch pattern per layer, like a layout tool's stipples
+function stipple(l, i) {
+  const c = rgba(l.color, 0.9), bg = rgba(l.color, Math.min(Math.max(l.alpha, 0.12), 0.3));
+  const pats = [
+    `repeating-linear-gradient(45deg, ${c} 0 1px, transparent 1px 4px)`,
+    `repeating-linear-gradient(-45deg, ${c} 0 1px, transparent 1px 4px)`,
+    `repeating-linear-gradient(45deg, ${c} 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, ${c} 0 1px, transparent 1px 4px)`,
+    `radial-gradient(${c} 0.8px, transparent 1px) 0 0 / 3px 3px`,
+    `repeating-linear-gradient(0deg, ${c} 0 1px, transparent 1px 3px)`,
+    `repeating-linear-gradient(90deg, ${c} 0 1px, transparent 1px 3px)`,
+  ];
+  if (l.alpha >= 0.8) return c;               // cuts: solid
+  return `${pats[i % pats.length]}, ${bg}`;
+}
+
 function rgba(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
@@ -123,10 +183,18 @@ function resize() {
   draw();
 }
 
+let zoomBox = null;                       // [x1, y1, x2, y2] in um from the URL, used once
+function parseHash() {
+  const [name, box] = decodeURIComponent(location.hash.slice(1)).split("@");
+  const nums = (box || "").split(",").map(Number);
+  return { name, box: nums.length === 4 && nums.every(isFinite) ? nums : null };
+}
+
 function fit() {
   if (!cell) return;
   const r = canvas.getBoundingClientRect();
-  const [x1, y1, x2, y2] = cell.bbox.map(v => v / 1000);
+  const [x1, y1, x2, y2] = zoomBox || cell.bbox.map(v => v / 1000);
+  zoomBox = null;
   const w = Math.max(x2 - x1, 1e-3), h = Math.max(y2 - y1, 1e-3);
   scale = 0.92 * Math.min(r.width / w, r.height / h);
   ox = r.width / 2 - (x1 + x2) / 2 * scale;
@@ -190,9 +258,9 @@ function draw() {
   // scale bar
   const step = niceStep(90 / scale), len = step * scale;
   ctx.fillStyle = "#e6e9ee";
-  ctx.fillRect(w - len - 14, h - 18, len, 2);
+  ctx.fillRect(w - len - 14, h - 32, len, 2);
   ctx.textAlign = "right";
-  ctx.fillText(step >= 1 ? `${step} µm` : `${Math.round(step * 1000)} nm`, w - 14, h - 28);
+  ctx.fillText(step >= 1 ? `${step} µm` : `${Math.round(step * 1000)} nm`, w - 14, h - 42);
   ctx.textAlign = "left";
 }
 
@@ -216,8 +284,9 @@ async function loadCell(name) {
     li.style.opacity = n ? 1 : 0.4;
   }
   const [x1, y1, x2, y2] = cell.bbox;
-  $("info").textContent = `${((x2 - x1) / 1000).toFixed(1)} × ${((y2 - y1) / 1000).toFixed(1)} µm`;
-  try { history.replaceState(null, "", "#" + name); } catch (e) {}
+  $("info").textContent = `${((x2 - x1) / 1000).toFixed(2)} × ${((y2 - y1) / 1000).toFixed(2)} µm`;
+  $("nshapes").textContent = Object.values(cell.layers).reduce((n, v) => n + v.length, 0).toLocaleString("en-US");
+  if (!zoomBox) try { history.replaceState(null, "", "#" + name); } catch (e) {}
   fit();
 }
 
@@ -240,11 +309,13 @@ async function start() {
     box.addEventListener("change", () => { visible[l.id] = box.checked; draw(); });
     const sw = document.createElement("span");
     sw.className = "swatch";
-    sw.style.background = rgba(l.color, Math.max(l.alpha, 0.35));
+    sw.style.background = stipple(l, layerDefs.indexOf(l));
     sw.style.borderColor = l.color;
     const name = document.createElement("span"); name.textContent = l.name;
+    const gds = document.createElement("span"); gds.className = "gds"; gds.textContent = l.id;
     const count = document.createElement("span"); count.className = "count";
-    label.append(box, sw, name, count); li.append(label); list.append(li);
+    box.addEventListener("change", () => li.classList.toggle("off", !box.checked));
+    label.append(box, sw, name, gds, count); li.append(label); list.append(li);
   }
   const select = $("cell");
   for (const c of index.cells) {
@@ -253,18 +324,38 @@ async function start() {
     select.append(o);
   }
   select.addEventListener("change", () => loadCell(select.value));
-  const wanted = decodeURIComponent(location.hash.slice(1));
-  if (index.cells.some(c => c.name === wanted)) select.value = wanted;
+  const wanted = parseHash();
+  if (index.cells.some(c => c.name === wanted.name)) {
+    select.value = wanted.name;
+    zoomBox = wanted.box;
+  }
   resize();
   loadCell(select.value);
 }
 
 function setAll(on) {
   for (const box of document.querySelectorAll("#layers input")) box.checked = on;
+  for (const li of document.querySelectorAll("#layers li")) li.classList.toggle("off", !on);
   for (const l of layerDefs) visible[l.id] = on;
   draw();
 }
 $("fit").addEventListener("click", fit);
+function setToggle(open) {
+  const t = $("panel-toggle"), label = open ? "Hide panel" : "Show panel";
+  t.textContent = open ? "›" : "‹";
+  t.setAttribute("aria-expanded", open);
+  t.setAttribute("aria-label", label);
+  t.title = label;
+}
+function setPanel(open) {
+  document.body.classList.toggle("collapsed", !open);
+  setToggle(open);
+  try { localStorage.setItem("viewer-panel", open ? "open" : "closed"); } catch (e) {}
+  resize();
+}
+$("panel-toggle").addEventListener("click", () => setPanel(document.body.classList.contains("collapsed")));
+try { if (localStorage.getItem("viewer-panel") === "closed") document.body.classList.add("collapsed"); } catch (e) {}
+if (document.body.classList.contains("collapsed")) setToggle(false);
 $("all").addEventListener("click", () => setAll(true));
 $("none").addEventListener("click", () => setAll(false));
 $("nets").addEventListener("change", draw);
